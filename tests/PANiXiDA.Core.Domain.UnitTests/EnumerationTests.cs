@@ -22,6 +22,14 @@ public sealed class EnumerationTests
         items.Should().Equal(TestEnumeration.First, TestEnumeration.Second);
     }
 
+    [Fact(DisplayName = "GetAll returns enumeration values ordered by identifier")]
+    public void GetAll_ReturnsEnumerationValuesOrderedByIdentifier()
+    {
+        IReadOnlyList<UnorderedEnumeration> items = UnorderedEnumeration.GetAll();
+
+        items.Should().Equal(UnorderedEnumeration.First, UnorderedEnumeration.Second);
+    }
+
     [Fact(DisplayName = "GetAll ignores public static fields with another type")]
     public void GetAll_IgnoresFieldsWithAnotherType()
     {
@@ -383,6 +391,12 @@ public sealed class EnumerationTests
     {
         public static readonly EnumerationWithIgnoredField Item = new(1, "Item");
         public static readonly string Ignored = "Ignored";
+    }
+
+    private sealed class UnorderedEnumeration(int id, string name) : Enumeration<UnorderedEnumeration>(id, name)
+    {
+        public static readonly UnorderedEnumeration Second = new(2, "Second");
+        public static readonly UnorderedEnumeration First = new(1, "First");
     }
 
     private sealed class DuplicateIdEnumeration(int id, string name)

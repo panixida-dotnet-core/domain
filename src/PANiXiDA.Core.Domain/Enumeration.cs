@@ -155,9 +155,9 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     }
 
     /// <summary>
-    /// Gets all declared enumeration values of the concrete enumeration type.
+    /// Gets all declared enumeration values of the concrete enumeration type ordered by identifier.
     /// </summary>
-    /// <returns>The declared enumeration values.</returns>
+    /// <returns>The declared enumeration values ordered by identifier.</returns>
     public static IReadOnlyList<TEnumeration> GetAll()
     {
         return Cache.Value.Items;
@@ -281,8 +281,11 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
             itemsBuilder.Add(item);
         }
 
+        var items = itemsBuilder.ToImmutable()
+            .Sort(static (left, right) => left.Id.CompareTo(right.Id));
+
         return new EnumerationCache(
-            itemsBuilder.ToImmutable(),
+            items,
             byId.ToFrozenDictionary(),
             byName.ToFrozenDictionary(StringComparer.Ordinal));
     }

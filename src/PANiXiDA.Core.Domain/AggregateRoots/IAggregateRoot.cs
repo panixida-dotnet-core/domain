@@ -11,9 +11,9 @@ public interface IAggregateRoot<out TId> : IEntity<TId>
     where TId : struct
 {
     /// <summary>
-    /// Gets the domain events raised by the aggregate root.
+    /// Gets a snapshot of the domain events raised by the aggregate root.
     /// </summary>
-    /// <returns>The read-only collection of domain events.</returns>
+    /// <returns>The read-only snapshot of domain events.</returns>
     IReadOnlyCollection<DomainEvent> GetDomainEvents();
 
     /// <summary>

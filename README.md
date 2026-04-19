@@ -178,7 +178,7 @@ IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 
 Enumeration behavior:
 
-- `GetAll()` returns public static values declared on the concrete type.
+- `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
 - `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
 - `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.

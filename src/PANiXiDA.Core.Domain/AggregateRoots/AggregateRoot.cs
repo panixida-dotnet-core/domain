@@ -23,12 +23,12 @@ public abstract class AggregateRoot<TId>(TId id) : Entity<TId>(id), IAggregateRo
     }
 
     /// <summary>
-    /// Gets the domain events raised by the aggregate root.
+    /// Gets a snapshot of the domain events raised by the aggregate root.
     /// </summary>
-    /// <returns>The read-only collection of domain events.</returns>
+    /// <returns>The read-only snapshot of domain events.</returns>
     public IReadOnlyCollection<DomainEvent> GetDomainEvents()
     {
-        return _domainEvents.AsReadOnly();
+        return Array.AsReadOnly(_domainEvents.ToArray());
     }
 
     /// <summary>

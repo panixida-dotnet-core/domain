@@ -26,6 +26,20 @@ public sealed class AggregateRootTests
         aggregateRoot.GetDomainEvents().Should().Equal(domainEvent);
     }
 
+    [Fact(DisplayName = "GetDomainEvents returns snapshot of raised domain events")]
+    public void GetDomainEvents_ReturnsSnapshotOfRaisedDomainEvents()
+    {
+        TestAggregateRoot aggregateRoot = new(42);
+        TestDomainEvent domainEvent = new();
+        aggregateRoot.Raise(domainEvent);
+
+        IReadOnlyCollection<DomainEvent> domainEvents = aggregateRoot.GetDomainEvents();
+        aggregateRoot.ClearDomainEvents();
+
+        domainEvents.Should().Equal(domainEvent);
+        aggregateRoot.GetDomainEvents().Should().BeEmpty();
+    }
+
     [Fact(DisplayName = "ClearDomainEvents removes raised domain events")]
     public void ClearDomainEvents_RemovesRaisedDomainEvents()
     {
