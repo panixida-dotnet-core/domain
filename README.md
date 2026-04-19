@@ -1,174 +1,201 @@
-## What to do after creating a repository from this template
+# PANiXiDA.Core.Domain
 
-### 1. Rename repository metadata
-- change repository name
-- change solution / project names
-- change package ID
-- change assembly name
-- change repository URLs
-- change ProjectReference in test project
-
-### 2. Update package metadata
-- description
-- tags
-
-### 3. Update documentation
-- replace this template README with the project README
-- fill all placeholder sections
-- update badges
-- update installation instructions
-- add real usage examples
-
-### 4. Configure GitHub repository
-- check repository visibility
-- configure default branch
-- configure branch protection rules
-- configure Issues / Discussions if needed
-- configure repository description, topics and website
-
-### 5. Prepare the first release
-- update versioning configuration pathFilters in version.json
-- verify NuGet metadata
-- verify README and icon inside the package
-- publish the first package version
-- the version is updated automatically based on the commit history
-
----
-
-# Universal README template for the NuGet package
-
-# <PackageName>
-
-`<PackageName>` is a .NET library for <short purpose>.
-
-It is designed for <target audience> who need <main value / main scenario>.
-
-## Status
-
-[![CI](https://github.com/<OWNER>/<REPOSITORY>/actions/workflows/ci.yml/badge.svg)](https://github.com/<OWNER>/<REPOSITORY>/actions/workflows/ci.yml)
-[![NuGet](https://img.shields.io/nuget/v/<PACKAGE_ID>.svg)](https://www.nuget.org/packages/<PACKAGE_ID>)
-[![NuGet downloads](https://img.shields.io/nuget/dt/<PACKAGE_ID>.svg)](https://www.nuget.org/packages/<PACKAGE_ID>)
+[![CI](https://github.com/panixida-dotnet-core/domain/actions/workflows/ci.yml/badge.svg)](https://github.com/panixida-dotnet-core/domain/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/PANiXiDA.Core.Domain.svg)](https://www.nuget.org/packages/PANiXiDA.Core.Domain)
+[![NuGet downloads](https://img.shields.io/nuget/dt/PANiXiDA.Core.Domain.svg)](https://www.nuget.org/packages/PANiXiDA.Core.Domain)
 [![Target Framework](https://img.shields.io/badge/target-net10.0-512BD4)](https://dotnet.microsoft.com/)
-[![License](https://img.shields.io/github/license/<OWNER>/<REPOSITORY>.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/panixida-dotnet-core/domain.svg)](LICENSE)
 
-## Overview
+`PANiXiDA.Core.Domain` provides small, reusable domain model building blocks for .NET applications that use Domain-Driven Design patterns.
 
-Describe:
+The package contains base abstractions for entities, aggregate roots, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
 
-- what problem this package solves;
-- why it exists;
-- where it fits in the system or ecosystem;
-- how it differs from alternatives, if that matters.
+## Installation
 
-Keep this section short and practical.
+### Package Manager
 
-## Features
+```bash
+dotnet add package PANiXiDA.Core.Domain
+```
 
-- Feature 1
-- Feature 2
-- Feature 3
-- Feature 4
-- Feature 5
-
-## Quick Start
-
-### Requirements
-
-- .NET 10 SDK
-
-### Installation
+### PackageReference
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="<PACKAGE_ID>" Version="..." />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="1.0.1" />
 </ItemGroup>
-````
-
-### Minimal import
-
-```csharp
-using <RootNamespace>;
 ```
 
-### First example
+## Requirements
+
+- .NET 10
+- Nullable reference types enabled in consuming projects is recommended
+
+## Features
+
+- Strongly typed `Entity<TId>` base class and `IEntity<TId>` contract.
+- `AggregateRoot<TId>` base class with domain event collection support.
+- `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
+- `ValueObject` base class with component-based equality.
+- `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
+- Deterministic lookup behavior for enumeration values by identifier or name.
+
+## Namespaces
 
 ```csharp
-// Add a minimal example here
+using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.AggregateRoots;
+using PANiXiDA.Core.Domain.DomainEvents;
+using PANiXiDA.Core.Domain.Entities;
 ```
 
-## Usage
+## Entity
 
-### Basic usage
+Use `Entity<TId>` for domain objects identified by a stable value. The identifier type must be a value type.
 
 ```csharp
-// Add a basic example here
+using PANiXiDA.Core.Domain.Entities;
+
+public sealed class Customer(Guid id) : Entity<Guid>(id)
+{
+    public string Name { get; private set; } = string.Empty;
+
+    public void Rename(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        Name = name;
+    }
+}
 ```
 
-### Typical scenario
+## Aggregate Root and Domain Events
+
+Use `AggregateRoot<TId>` when an entity is the consistency boundary for a domain model and needs to collect domain events.
 
 ```csharp
-// Add a realistic example here
+using PANiXiDA.Core.Domain.AggregateRoots;
+using PANiXiDA.Core.Domain.DomainEvents;
+
+public sealed class Order(Guid id) : AggregateRoot<Guid>(id)
+{
+    public bool IsStarted { get; private set; }
+
+    public void Start()
+    {
+        if (IsStarted)
+        {
+            return;
+        }
+
+        IsStarted = true;
+
+        AddDomainEvent(new OrderStarted(Id));
+    }
+}
+
+public sealed record OrderStarted(Guid OrderId) : DomainEvent;
 ```
 
-### Advanced scenario
+Domain events are stored inside the aggregate root until the application layer reads and clears them.
 
 ```csharp
-// Add an advanced example here if needed
+Order order = new(Guid.NewGuid());
+order.Start();
+
+IReadOnlyCollection<DomainEvent> domainEvents = order.GetDomainEvents();
+
+order.ClearDomainEvents();
 ```
+
+`DomainEvent` assigns:
+
+- `Id` with `Guid.CreateVersion7()`;
+- `OccurredOnUtc` with `DateTimeOffset.UtcNow`.
+
+The package only stores domain events. It does not dispatch, publish, persist, or serialize them.
+
+## Value Object
+
+Use `ValueObject` for immutable concepts where equality is based on values instead of identity.
+
+```csharp
+using PANiXiDA.Core.Domain;
+
+public sealed class Money(decimal amount, string currency) : ValueObject
+{
+    public decimal Amount { get; } = amount;
+
+    public string Currency { get; } = currency;
+
+    protected override IEnumerable<object?> GetEqualityComponents()
+    {
+        yield return Amount;
+        yield return Currency;
+    }
+}
+```
+
+```csharp
+Money first = new(10m, "USD");
+Money second = new(10m, "USD");
+
+bool areEqual = first == second;
+```
+
+Value object equality uses:
+
+- the same runtime type;
+- the ordered sequence returned by `GetEqualityComponents()`.
+
+## Enumeration
+
+Use `Enumeration<TEnumeration>` for stable, named domain values that need behavior and lookup methods.
+
+```csharp
+using PANiXiDA.Core.Domain;
+
+public sealed class OrderStatus : Enumeration<OrderStatus>
+{
+    public static readonly OrderStatus Draft = new(1, "Draft");
+    public static readonly OrderStatus Submitted = new(2, "Submitted");
+    public static readonly OrderStatus Cancelled = new(3, "Cancelled");
+
+    private OrderStatus(int id, string name)
+        : base(id, name)
+    {
+    }
+}
+```
+
+```csharp
+OrderStatus submitted = OrderStatus.FromId(2);
+OrderStatus cancelled = OrderStatus.FromName("Cancelled");
+
+bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
+IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
+```
+
+Enumeration behavior:
+
+- `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
+- `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
+- `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
+- `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.
+- Names are compared with `StringComparer.Ordinal`.
+- Duplicate identifiers or names throw `InvalidOperationException` during cache creation.
+- Equality and ordering are based on identifiers within the concrete enumeration type.
 
 ## Configuration
 
-Describe configuration only if the package actually requires it.
-
-Possible topics:
-
-* environment variables;
-* `appsettings.json`;
-* feature flags;
-* external services;
-* secrets;
-* runtime prerequisites.
-
-If the package does not require runtime configuration, say so explicitly.
-
-## Project Structure
-
-```text
-.
-├── src/
-│   └── <ProjectName>/
-├── tests/
-│   └── <ProjectName>.UnitTests/
-├── .editorconfig
-├── .gitattributes
-├── .gitignore
-├── Directory.Build.props
-├── Directory.Build.targets
-├── Directory.Packages.props
-├── global.json
-├── version.json
-├── LICENSE
-└── README.md
-```
-
-### Main repository files
-
-* `src/` — source code
-* `tests/` — automated tests
-* `Directory.Build.props` — shared MSBuild settings
-* `Directory.Build.targets` — shared build / packaging settings
-* `Directory.Packages.props` — centralized package versions
-* `global.json` — SDK and tooling configuration
-* `version.json` — versioning configuration
-* `README.md` — package overview and usage documentation
+The package does not require runtime configuration, environment variables, external services, or dependency injection registration.
 
 ## Development
 
-### Build
+### Restore
 
 ```bash
 dotnet restore
-dotnet build --configuration Release
 ```
 
 ### Format
@@ -177,10 +204,22 @@ dotnet build --configuration Release
 dotnet format
 ```
 
+### Build
+
+```bash
+dotnet build --configuration Release
+```
+
 ### Test
 
 ```bash
 dotnet test --configuration Release
+```
+
+### Test with Coverage
+
+```bash
+dotnet test --configuration Release --coverage --coverage-output-format xml --coverage-output coverage.xml --results-directory TestResults
 ```
 
 ### Pack
@@ -189,98 +228,37 @@ dotnet test --configuration Release
 dotnet pack --configuration Release
 ```
 
-### Full local validation
+## Repository Layout
 
-```bash
-dotnet restore
-dotnet format
-dotnet build --configuration Release
-dotnet test --configuration Release
-dotnet pack --configuration Release
+```text
+.
+|-- src/
+|   `-- PANiXiDA.Core.Domain/
+|-- tests/
+|   `-- PANiXiDA.Core.Domain.UnitTests/
+|-- Directory.Build.props
+|-- Directory.Build.targets
+|-- Directory.Packages.props
+|-- global.json
+|-- version.json
+|-- LICENSE
+`-- README.md
 ```
 
-### Tooling and conventions
+## Package Metadata
 
-This repository uses:
-
-* .NET 10
-* Nullable enabled
-* Implicit usings enabled
-* Central package management
-* GitHub Actions
-* Nerdbank.GitVersioning
-
-Add more items only if they are actually relevant for the repository.
-
-## API / Contracts / Examples
-
-Describe the public API surface here.
-
-Suggested structure:
-
-* core abstractions;
-* main entry points;
-* key extension methods;
-* important behavioral notes;
-* typical integration examples.
-
-## Roadmap / TODO
-
-Potential future improvements:
-
-* item 1;
-* item 2;
-* item 3.
-
-Remove this section if it does not provide value.
-
-## Contributing
-
-Contributions are welcome.
-
-### General rules
-
-* keep the public API intentional;
-* avoid unnecessary dependencies;
-* preserve repository conventions;
-* do not introduce breaking changes without review;
-* keep documentation updated.
-
-### Code style
-
-* follow the repository `.editorconfig`;
-* prefer readable and explicit code;
-* keep naming consistent with the existing codebase.
-
-### Tests
-
-* add or update tests for meaningful behavior changes;
-* cover both success and failure scenarios where applicable;
-* add regression tests for bug fixes.
-
-### Validation before completion
-
-Run:
-
-```bash
-dotnet restore
-dotnet format
-dotnet build --configuration Release
-dotnet test --configuration Release
-```
+- Package ID: `PANiXiDA.Core.Domain`
+- Target framework: `net10.0`
+- Repository: `https://github.com/panixida-dotnet-core/domain`
+- License: Apache-2.0
+- Versioning: Nerdbank.GitVersioning
 
 ## License
 
-This project is licensed under the <LicenseName> license.
+This project is licensed under the Apache-2.0 license.
 
 See the [LICENSE](LICENSE) file for details.
 
-## Maintainers / Contacts
+## Maintainers
 
-Maintained by <Author / Team / Organization>.
-
-For questions or improvements, use:
-
-* GitHub Issues
-* Pull Requests
-* GitHub Discussions, if enabled
+Maintained by PANiXiDA.
