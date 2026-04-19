@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <IsPackable>true</IsPackable>
+
+        <AssemblyName>PANiXiDA.Core.Domain</AssemblyName>
+
+        <PackageId>PANiXiDA.Core.Domain</PackageId>
+        <Description>Core domain abstractions for .NET applications, including Entity, AggregateRoot, ValueObject, DomainEvent, and Enumeration building blocks.</Description>
+        <PackageTags>Domain;DDD;DomainDrivenDesign;Entity;AggregateRoot;ValueObject;DomainEvent;Enumeration;DotNet</PackageTags>
+
+        <RepositoryUrl>https://github.com/panixida-dotnet-core/domain</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/panixida-dotnet-core/domain</PackageProjectUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+</Project>
