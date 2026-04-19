@@ -4,11 +4,9 @@ using PANiXiDA.Core.Domain.Entities;
 namespace PANiXiDA.Core.Domain.AggregateRoots;
 
 /// <summary>
-/// Defines an aggregate root with a strongly typed identifier and domain event storage.
+/// Defines an aggregate root with domain event storage.
 /// </summary>
-/// <typeparam name="TId">The aggregate root identifier type.</typeparam>
-public interface IAggregateRoot<out TId> : IEntity<TId>
-    where TId : struct
+public interface IAggregateRoot : IEntity
 {
     /// <summary>
     /// Gets a snapshot of the domain events raised by the aggregate root.
