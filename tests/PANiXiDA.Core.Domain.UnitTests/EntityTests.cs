@@ -20,9 +20,16 @@ public sealed class EntityTests
     {
         TestEntity entity = new(Guid.NewGuid());
 
-        IEntity<Guid> contract = entity;
+        IEntity contract = entity;
 
-        contract.Id.Should().Be(entity.Id);
+        contract.Should().BeSameAs(entity);
+    }
+
+    [Fact(DisplayName = "Entity contract does not expose identifier")]
+    public void EntityContract_DoesNotExposeIdentifier()
+    {
+        typeof(IEntity).IsGenericType.Should().BeFalse();
+        typeof(IEntity).GetProperties().Should().BeEmpty();
     }
 
     private sealed class TestEntity(Guid id) : Entity<Guid>(id);

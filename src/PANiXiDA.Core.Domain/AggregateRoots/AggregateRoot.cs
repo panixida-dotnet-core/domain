@@ -8,7 +8,7 @@ namespace PANiXiDA.Core.Domain.AggregateRoots;
 /// </summary>
 /// <typeparam name="TId">The aggregate root identifier type.</typeparam>
 /// <param name="id">The aggregate root identifier.</param>
-public abstract class AggregateRoot<TId>(TId id) : Entity<TId>(id), IAggregateRoot<TId>
+public abstract class AggregateRoot<TId>(TId id) : Entity<TId>(id), IAggregateRoot
     where TId : struct
 {
     private readonly List<DomainEvent> _domainEvents = [];

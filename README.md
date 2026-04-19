@@ -33,8 +33,8 @@ dotnet add package PANiXiDA.Core.Domain
 
 ## Features
 
-- Strongly typed `Entity<TId>` base class and `IEntity<TId>` contract.
-- `AggregateRoot<TId>` base class with domain event collection support.
+- Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
+- `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
@@ -52,6 +52,7 @@ using PANiXiDA.Core.Domain.Entities;
 ## Entity
 
 Use `Entity<TId>` for domain objects identified by a stable value. The identifier type must be a value type.
+The `IEntity` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `Entity<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.Entities;
@@ -72,6 +73,7 @@ public sealed class Customer(Guid id) : Entity<Guid>(id)
 ## Aggregate Root and Domain Events
 
 Use `AggregateRoot<TId>` when an entity is the consistency boundary for a domain model and needs to collect domain events.
+The `IAggregateRoot` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `AggregateRoot<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.AggregateRoots;

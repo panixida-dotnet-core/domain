@@ -15,6 +15,23 @@ public sealed class AggregateRootTests
         id.Should().Be(42);
     }
 
+    [Fact(DisplayName = "Aggregate root implements aggregate root contract")]
+    public void AggregateRoot_ImplementsAggregateRootContract()
+    {
+        TestAggregateRoot aggregateRoot = new(42);
+
+        IAggregateRoot contract = aggregateRoot;
+
+        contract.GetDomainEvents().Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "Aggregate root contract does not expose identifier")]
+    public void AggregateRootContract_DoesNotExposeIdentifier()
+    {
+        typeof(IAggregateRoot).IsGenericType.Should().BeFalse();
+        typeof(IAggregateRoot).GetProperties().Should().BeEmpty();
+    }
+
     [Fact(DisplayName = "GetDomainEvents returns raised domain events")]
     public void GetDomainEvents_ReturnsRaisedDomainEvents()
     {
