@@ -8,7 +8,7 @@
 
 `PANiXiDA.Core.Domain` provides small, reusable domain model building blocks for .NET applications that use Domain-Driven Design patterns.
 
-The package contains base abstractions for entities, aggregate roots, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
+The package contains base abstractions for entities, aggregate roots, aggregate repositories, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
 
 ## Installation
 
@@ -35,6 +35,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 - Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
 - `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
+- `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
@@ -44,6 +45,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```csharp
 using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
@@ -116,6 +118,28 @@ order.ClearDomainEvents();
 - `OccurredOnUtc` with `DateTimeOffset.UtcNow`.
 
 The package only stores domain events. It does not dispatch, publish, persist, or serialize them.
+
+## Repository Abstraction Ownership
+
+Repository contracts are split by architectural responsibility:
+
+| Contract | Package | Namespace | Responsibility |
+| --- | --- | --- | --- |
+| `IRepository<TId, TAggregateRoot>` | `PANiXiDA.Core.Domain` | `PANiXiDA.Core.Domain.Abstractions` | Loading and persisting aggregate roots through the domain boundary. |
+| `IReadRepository<TId>` | [`PANiXiDA.Core.Application`](https://github.com/panixida-dotnet-core/application#repository-abstraction-ownership) | `PANiXiDA.Core.Application.Persistence` | Read-side existence checks used by application queries and validation. |
+
+Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root:
+
+```csharp
+using PANiXiDA.Core.Domain.Abstractions;
+
+public interface IOrderRepository : IRepository<Guid, Order>
+{
+}
+```
+
+The contract provides `GetByIdAsync`, `AddAsync`, `UpdateAsync`, and `DeleteAsync`.
+Read-only application concerns should depend on `IReadRepository<TId>` from `PANiXiDA.Core.Application`.
 
 ## Value Object
 
