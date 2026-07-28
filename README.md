@@ -8,7 +8,7 @@
 
 `PANiXiDA.Core.Domain` provides small, reusable domain model building blocks for .NET applications that use Domain-Driven Design patterns.
 
-The package contains base abstractions for entities, aggregate roots, aggregate repositories, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
+The package contains base abstractions for strongly typed identifiers, entities, aggregate roots, aggregate repositories, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
 
 ## Installation
 
@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="1.0.1" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="2.0.0" />
 </ItemGroup>
 ```
 
@@ -35,6 +35,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 - Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
 - `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
+- `IStronglyTypedId<TValue>` contract and non-generic `IStronglyTypedId` marker for domain identifiers.
 - `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
 - `ValueObject` base class with component-based equality.
@@ -49,17 +50,36 @@ using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Identifiers;
+```
+
+## Strongly Typed Identifier
+
+Use `IStronglyTypedId<TValue>` to distinguish domain identifiers from their underlying primitive values.
+The non-generic `IStronglyTypedId` contract can be used to discover strongly typed identifiers without knowing their underlying value type.
+
+```csharp
+using PANiXiDA.Core.Domain.Identifiers;
+
+public readonly record struct CustomerId(Guid Value) : IStronglyTypedId<Guid>
+{
+    public static CustomerId New()
+    {
+        return new CustomerId(Guid.CreateVersion7());
+    }
+}
 ```
 
 ## Entity
 
-Use `Entity<TId>` for domain objects identified by a stable value. The identifier type must be a value type.
+Use `Entity<TId>` for domain objects identified by a stable value.
+The identifier type must be a value type that implements `IStronglyTypedId`.
 The `IEntity` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `Entity<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.Entities;
 
-public sealed class Customer(Guid id) : Entity<Guid>(id)
+public sealed class Customer(CustomerId id) : Entity<CustomerId>(id)
 {
     public string Name { get; private set; } = string.Empty;
 
@@ -75,13 +95,17 @@ public sealed class Customer(Guid id) : Entity<Guid>(id)
 ## Aggregate Root and Domain Events
 
 Use `AggregateRoot<TId>` when an entity is the consistency boundary for a domain model and needs to collect domain events.
+Its identifier type must be a value type that implements `IStronglyTypedId`.
 The `IAggregateRoot` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `AggregateRoot<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
+using PANiXiDA.Core.Domain.Identifiers;
 
-public sealed class Order(Guid id) : AggregateRoot<Guid>(id)
+public readonly record struct OrderId(Guid Value) : IStronglyTypedId<Guid>;
+
+public sealed class Order(OrderId id) : AggregateRoot<OrderId>(id)
 {
     public bool IsStarted { get; private set; }
 
@@ -98,7 +122,7 @@ public sealed class Order(Guid id) : AggregateRoot<Guid>(id)
     }
 }
 
-public sealed record OrderStarted(Guid OrderId) : DomainEvent;
+public sealed record OrderStarted(OrderId OrderId) : DomainEvent;
 ```
 
 Domain events are stored inside the aggregate root until the application layer reads and clears them.
@@ -128,12 +152,13 @@ Repository contracts are split by architectural responsibility:
 | `IRepository<TId, TAggregateRoot>` | `PANiXiDA.Core.Domain` | `PANiXiDA.Core.Domain.Abstractions` | Loading and persisting aggregate roots through the domain boundary. |
 | `IReadRepository<TId>` | [`PANiXiDA.Core.Application`](https://github.com/panixida-dotnet-core/application#repository-abstraction-ownership) | `PANiXiDA.Core.Application.Persistence` | Read-side existence checks used by application queries and validation. |
 
-Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root:
+Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root.
+The identifier type must be a value type that implements `IStronglyTypedId`.
 
 ```csharp
 using PANiXiDA.Core.Domain.Abstractions;
 
-public interface IOrderRepository : IRepository<Guid, Order>
+public interface IOrderRepository : IRepository<OrderId, Order>
 {
 }
 ```

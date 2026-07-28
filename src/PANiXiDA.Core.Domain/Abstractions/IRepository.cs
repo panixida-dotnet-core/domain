@@ -1,14 +1,18 @@
 ﻿using PANiXiDA.Core.Domain.AggregateRoots;
 
+using PANiXiDA.Core.Domain.Identifiers;
+
 namespace PANiXiDA.Core.Domain.Abstractions;
 
 /// <summary>
 /// Defines basic persistence operations for an aggregate root.
 /// </summary>
-/// <typeparam name="TId">The aggregate root identifier type.</typeparam>
+/// <typeparam name="TId">
+/// The aggregate root identifier value type that implements <see cref="IStronglyTypedId"/>.
+/// </typeparam>
 /// <typeparam name="TAggregateRoot">The aggregate root type.</typeparam>
 public interface IRepository<TId, TAggregateRoot>
-    where TId : struct
+    where TId : struct, IStronglyTypedId
     where TAggregateRoot : class, IAggregateRoot
 {
     /// <summary>

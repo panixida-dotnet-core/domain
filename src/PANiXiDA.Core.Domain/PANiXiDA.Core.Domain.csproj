@@ -5,8 +5,8 @@
         <AssemblyName>PANiXiDA.Core.Domain</AssemblyName>
 
         <PackageId>PANiXiDA.Core.Domain</PackageId>
-        <Description>Core domain abstractions for .NET applications, including Entity, AggregateRoot, ValueObject, DomainEvent, and Enumeration building blocks.</Description>
-        <PackageTags>Domain;DDD;DomainDrivenDesign;Entity;AggregateRoot;ValueObject;DomainEvent;Enumeration;DotNet</PackageTags>
+        <Description>Core domain abstractions for .NET applications, including strongly typed identifiers, Entity, AggregateRoot, ValueObject, DomainEvent, and Enumeration building blocks.</Description>
+        <PackageTags>Domain;DDD;DomainDrivenDesign;StronglyTypedId;Entity;AggregateRoot;ValueObject;DomainEvent;Enumeration;DotNet</PackageTags>
 
         <RepositoryUrl>https://github.com/panixida-dotnet-core/domain</RepositoryUrl>
         <PackageProjectUrl>https://github.com/panixida-dotnet-core/domain</PackageProjectUrl>

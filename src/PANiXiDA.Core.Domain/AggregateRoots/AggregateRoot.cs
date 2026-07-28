@@ -1,15 +1,18 @@
 ﻿using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Identifiers;
 
 namespace PANiXiDA.Core.Domain.AggregateRoots;
 
 /// <summary>
 /// Represents a domain aggregate root with a strongly typed identifier and collected domain events.
 /// </summary>
-/// <typeparam name="TId">The aggregate root identifier type.</typeparam>
+/// <typeparam name="TId">
+/// The aggregate root identifier value type that implements <see cref="IStronglyTypedId"/>.
+/// </typeparam>
 /// <param name="id">The aggregate root identifier.</param>
 public abstract class AggregateRoot<TId>(TId id) : Entity<TId>(id), IAggregateRoot
-    where TId : struct
+    where TId : struct, IStronglyTypedId
 {
     private readonly List<DomainEvent> _domainEvents = [];
 
