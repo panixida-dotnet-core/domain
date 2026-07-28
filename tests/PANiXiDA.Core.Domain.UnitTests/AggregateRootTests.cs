@@ -1,5 +1,6 @@
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
+using PANiXiDA.Core.Domain.Identifiers;
 
 namespace PANiXiDA.Core.Domain.UnitTests;
 
@@ -8,17 +9,18 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "Aggregate root exposes its identifier")]
     public void Id_ReturnsConstructorValue()
     {
-        TestAggregateRoot aggregateRoot = new(42);
+        TestId id = new(Guid.NewGuid());
+        TestAggregateRoot aggregateRoot = new(id);
 
-        int id = aggregateRoot.Id;
+        TestId result = aggregateRoot.Id;
 
-        id.Should().Be(42);
+        result.Should().Be(id);
     }
 
     [Fact(DisplayName = "Aggregate root implements aggregate root contract")]
     public void AggregateRoot_ImplementsAggregateRootContract()
     {
-        TestAggregateRoot aggregateRoot = new(42);
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
 
         IAggregateRoot contract = aggregateRoot;
 
@@ -35,7 +37,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "GetDomainEvents returns raised domain events")]
     public void GetDomainEvents_ReturnsRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(42);
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         TestDomainEvent domainEvent = new();
 
         aggregateRoot.Raise(domainEvent);
@@ -46,7 +48,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "GetDomainEvents returns snapshot of raised domain events")]
     public void GetDomainEvents_ReturnsSnapshotOfRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(42);
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         TestDomainEvent domainEvent = new();
         aggregateRoot.Raise(domainEvent);
 
@@ -60,7 +62,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "ClearDomainEvents removes raised domain events")]
     public void ClearDomainEvents_RemovesRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(42);
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         aggregateRoot.Raise(new TestDomainEvent());
 
         aggregateRoot.ClearDomainEvents();
@@ -68,7 +70,19 @@ public sealed class AggregateRootTests
         aggregateRoot.GetDomainEvents().Should().BeEmpty();
     }
 
-    private sealed class TestAggregateRoot(int id) : AggregateRoot<int>(id)
+    [Fact(DisplayName = "Aggregate root identifier requires the strongly typed identifier contract")]
+    public void IdentifierTypeParameter_RequiresStronglyTypedIdentifierContract()
+    {
+        Type identifierTypeParameter = typeof(AggregateRoot<>).GetGenericArguments().Single();
+
+        Type[] constraints = identifierTypeParameter.GetGenericParameterConstraints();
+
+        constraints.Should().Contain(typeof(IStronglyTypedId));
+    }
+
+    private readonly record struct TestId(Guid Value) : IStronglyTypedId;
+
+    private sealed class TestAggregateRoot(TestId id) : AggregateRoot<TestId>(id)
     {
         public void Raise(DomainEvent domainEvent)
         {
