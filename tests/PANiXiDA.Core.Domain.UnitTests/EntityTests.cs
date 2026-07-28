@@ -44,7 +44,7 @@ public sealed class EntityTests
         constraints.Should().Contain(typeof(IStronglyTypedId));
     }
 
-    private readonly record struct TestId(Guid Value) : IStronglyTypedId<Guid>;
+    private readonly record struct TestId(Guid Value) : IStronglyTypedId;
 
     private sealed class TestEntity(TestId id) : Entity<TestId>(id);
 }

@@ -35,7 +35,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 - Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
 - `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
-- `IStronglyTypedId<TValue>` contract and non-generic `IStronglyTypedId` marker for domain identifiers.
+- `IStronglyTypedId` contract for domain identifiers backed by `Guid` values.
 - `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
 - `ValueObject` base class with component-based equality.
@@ -55,13 +55,12 @@ using PANiXiDA.Core.Domain.Identifiers;
 
 ## Strongly Typed Identifier
 
-Use `IStronglyTypedId<TValue>` to distinguish domain identifiers from their underlying primitive values.
-The non-generic `IStronglyTypedId` contract can be used to discover strongly typed identifiers without knowing their underlying value type.
+Use `IStronglyTypedId` to distinguish domain identifiers from raw `Guid` values while keeping the underlying value type consistent.
 
 ```csharp
 using PANiXiDA.Core.Domain.Identifiers;
 
-public readonly record struct CustomerId(Guid Value) : IStronglyTypedId<Guid>
+public readonly record struct CustomerId(Guid Value) : IStronglyTypedId
 {
     public static CustomerId New()
     {
@@ -103,7 +102,7 @@ using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Identifiers;
 
-public readonly record struct OrderId(Guid Value) : IStronglyTypedId<Guid>;
+public readonly record struct OrderId(Guid Value) : IStronglyTypedId;
 
 public sealed class Order(OrderId id) : AggregateRoot<OrderId>(id)
 {

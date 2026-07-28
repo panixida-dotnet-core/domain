@@ -9,7 +9,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "Aggregate root exposes its identifier")]
     public void Id_ReturnsConstructorValue()
     {
-        TestId id = new(42);
+        TestId id = new(Guid.NewGuid());
         TestAggregateRoot aggregateRoot = new(id);
 
         TestId result = aggregateRoot.Id;
@@ -20,7 +20,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "Aggregate root implements aggregate root contract")]
     public void AggregateRoot_ImplementsAggregateRootContract()
     {
-        TestAggregateRoot aggregateRoot = new(new TestId(42));
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
 
         IAggregateRoot contract = aggregateRoot;
 
@@ -37,7 +37,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "GetDomainEvents returns raised domain events")]
     public void GetDomainEvents_ReturnsRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(new TestId(42));
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         TestDomainEvent domainEvent = new();
 
         aggregateRoot.Raise(domainEvent);
@@ -48,7 +48,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "GetDomainEvents returns snapshot of raised domain events")]
     public void GetDomainEvents_ReturnsSnapshotOfRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(new TestId(42));
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         TestDomainEvent domainEvent = new();
         aggregateRoot.Raise(domainEvent);
 
@@ -62,7 +62,7 @@ public sealed class AggregateRootTests
     [Fact(DisplayName = "ClearDomainEvents removes raised domain events")]
     public void ClearDomainEvents_RemovesRaisedDomainEvents()
     {
-        TestAggregateRoot aggregateRoot = new(new TestId(42));
+        TestAggregateRoot aggregateRoot = new(new TestId(Guid.NewGuid()));
         aggregateRoot.Raise(new TestDomainEvent());
 
         aggregateRoot.ClearDomainEvents();
@@ -80,7 +80,7 @@ public sealed class AggregateRootTests
         constraints.Should().Contain(typeof(IStronglyTypedId));
     }
 
-    private readonly record struct TestId(int Value) : IStronglyTypedId<int>;
+    private readonly record struct TestId(Guid Value) : IStronglyTypedId;
 
     private sealed class TestAggregateRoot(TestId id) : AggregateRoot<TestId>(id)
     {
