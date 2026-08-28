@@ -278,6 +278,12 @@ dotnet test --configuration Release --coverage --coverage-output-format xml --co
 dotnet pack --configuration Release
 ```
 
+### Continuous integration
+
+Every pull request and push to `main` runs formatting, tests, and mandatory
+SonarQube analysis. Publishing from `main` starts only after the SonarQube
+Quality Gate succeeds.
+
 ## Repository Layout
 
 ```text
