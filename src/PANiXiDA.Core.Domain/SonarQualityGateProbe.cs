@@ -2,21 +2,6 @@ namespace PANiXiDA.Core.Domain;
 
 internal static class SonarQualityGateProbe
 {
-    internal static bool HasValue(string value)
-    {
-        if (value.Length > 0)
-        {
-            return true;
-        }
-
-        if (value.Length > 0)
-        {
-            return false;
-        }
-
-        return false;
-    }
-
     internal static string Normalize(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -25,6 +10,14 @@ internal static class SonarQualityGateProbe
         }
 
         return "invalid";
+    }
+
+    internal static void Validate(string value)
+    {
+        if (value.Length == 0)
+        {
+            throw new ArgumentException("Value is required.", "missing");
+        }
     }
 
     internal static void DoNothing()

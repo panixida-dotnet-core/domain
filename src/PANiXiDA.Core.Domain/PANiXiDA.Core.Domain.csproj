@@ -17,4 +17,8 @@
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
     </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="PANiXiDA.Core.Domain.UnitTests" />
+    </ItemGroup>
 </Project>
