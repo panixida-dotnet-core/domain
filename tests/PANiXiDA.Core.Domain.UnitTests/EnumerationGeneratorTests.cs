@@ -15,7 +15,7 @@ public sealed class EnumerationGeneratorTests
         .Select(path => MetadataReference.CreateFromFile(path))
         .ToArray();
 
-    [Fact(DisplayName = "Generator emits direct field access and a compilable static contract")]
+    [Fact(DisplayName = "Generator emits direct field access and lookup methods on the concrete type")]
     public void Generate_WithPartialEnumeration_EmitsDirectFieldAccess()
     {
         var compilation = CreateCompilation("""
@@ -38,6 +38,13 @@ public sealed class EnumerationGeneratorTests
         source.Should().Contain("global::Example.Status.@First", "global::Example.Status.@Boxed");
         source.Should().NotContain(".@Hidden").And.NotContain(".@Property");
         source.Should().NotContain("System.Reflection").And.NotContain("GetFields");
+        var status = output.GetTypeByMetadataName("Example.Status")!;
+        foreach (string methodName in new[] { "GetAll", "FromId", "FromName", "TryFromId", "TryFromName" })
+        {
+            var method = status.GetMembers(methodName).OfType<IMethodSymbol>().Should().ContainSingle().Subject;
+            method.IsStatic.Should().BeTrue();
+            method.DeclaredAccessibility.Should().Be(Accessibility.Public);
+        }
     }
 
     [Fact(DisplayName = "Generator combines partial declarations without duplicate output")]
@@ -69,7 +76,7 @@ public sealed class EnumerationGeneratorTests
         // Arrange
         var compilation = CreateCompilation("""
             public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
-                where T : Base<T>, PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<T>
+                where T : Base<T>
             {
                 protected const int __enumerationValues = 1;
             }
@@ -140,16 +147,13 @@ public sealed class EnumerationGeneratorTests
         result.Results.Single().GeneratedSources.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "Generator ignores unrelated classes and explicitly implemented providers")]
-    public void Generate_WithUnrelatedOrManualTypes_DoesNotEmitProviders()
+    [Fact(DisplayName = "Generator ignores unrelated classes and generic enumeration base types")]
+    public void Generate_WithUnrelatedOrGenericBaseTypes_DoesNotEmitSource()
     {
         var compilation = CreateCompilation("""
             public class Unrelated : System.Exception { }
-            public sealed class Manual(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Manual>(id, name),
-                PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<Manual>
-            {
-                public static System.Collections.Generic.IReadOnlyList<Manual> GetDeclaredValues() => [];
-            }
+            public abstract class Generic<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
+                where T : Generic<T>;
             """);
 
         var (result, output) = Generate(compilation);
@@ -164,7 +168,7 @@ public sealed class EnumerationGeneratorTests
     {
         var compilation = CreateCompilation("""
             public abstract class Intermediate<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
-                where T : Intermediate<T>, PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<T>
+                where T : Intermediate<T>
             {
                 public static readonly object Inherited = new object();
             }
@@ -179,6 +183,42 @@ public sealed class EnumerationGeneratorTests
         AssertCompiles(output);
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
         source.Should().Contain(".@Item").And.NotContain(".@Inherited");
+    }
+
+    [Fact(DisplayName = "Generated lookup methods support delegates and generic consumers without a provider constraint")]
+    public void Generate_WithGenericConsumer_CompilesUsingOnlyEnumerationConstraint()
+    {
+        // Arrange
+        var compilation = CreateCompilation("""
+            using System;
+            using System.Collections.Generic;
+            using PANiXiDA.Core.Domain;
+
+            public sealed partial class Status(int id, string name) : Enumeration<Status>(id, name)
+            {
+                public static readonly Status Active = new(1, "Active");
+            }
+
+            public static class Consumer
+            {
+                public static T Find<T>(Func<int, T> fromId, int id) where T : Enumeration<T> => fromId(id);
+                public static IReadOnlyList<T> Read<T>(Func<IReadOnlyList<T>> getAll)
+                    where T : Enumeration<T> => getAll();
+
+                public static Status FindActive() => Find(Status.FromId, 1);
+                public static IReadOnlyList<Status> ReadStatuses() => Read(Status.GetAll);
+                public static Status FindByName() => Status.FromName(" Active ");
+                public static bool TryById(out Status? value) => Status.TryFromId(1, out value);
+                public static bool TryByName(out Status? value) => Status.TryFromName("Active", out value);
+            }
+            """);
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        AssertCompiles(output);
+        result.Diagnostics.Should().BeEmpty();
     }
 
     [Fact(DisplayName = "Generator preserves unchanged output when unrelated source changes")]

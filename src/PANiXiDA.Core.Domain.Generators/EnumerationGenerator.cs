@@ -8,13 +8,12 @@ using Microsoft.CodeAnalysis.Text;
 namespace PANiXiDA.Core.Domain.Generators;
 
 /// <summary>
-/// Generates immutable value lists from the declared fields of partial enumeration types.
+/// Generates immutable value lists and lookup methods for partial enumeration types.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class EnumerationGenerator : IIncrementalGenerator
 {
     private const string EnumerationTypeName = "PANiXiDA.Core.Domain.Enumeration<TEnumeration>";
-    private const string ValuesInterfaceName = "PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<TEnumeration>";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANENUM001",
@@ -63,8 +62,7 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         if (context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol type
-            || !IsEnumeration(type)
-            || HasValuesImplementation(type))
+            || !IsEnumeration(type))
         {
             return null;
         }
@@ -108,13 +106,6 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
         }
 
         return false;
-    }
-
-    private static bool HasValuesImplementation(INamedTypeSymbol type)
-    {
-        return type.AllInterfaces.Any(item =>
-            item.OriginalDefinition.ToDisplayString() == ValuesInterfaceName
-            && SymbolEqualityComparer.Default.Equals(item.TypeArguments[0], type));
     }
 
     private static string GetHintName(INamedTypeSymbol type)

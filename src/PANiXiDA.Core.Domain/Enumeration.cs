@@ -1,6 +1,4 @@
-﻿using PANiXiDA.Core.Domain.Abstractions;
-
-namespace PANiXiDA.Core.Domain;
+﻿namespace PANiXiDA.Core.Domain;
 
 /// <summary>
 /// Represents an extensible enumeration value with a stable identifier and name.
@@ -9,7 +7,7 @@ namespace PANiXiDA.Core.Domain;
 /// <param name="id">The stable enumeration value identifier.</param>
 /// <param name="name">The enumeration value name.</param>
 public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatable<TEnumeration>, IComparable<TEnumeration>
-    where TEnumeration : Enumeration<TEnumeration>, IEnumerationValues<TEnumeration>
+    where TEnumeration : Enumeration<TEnumeration>
 {
     /// <summary>
     /// Gets the stable enumeration value identifier.
@@ -151,25 +149,17 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     }
 
     /// <summary>
-    /// Gets all declared enumeration values of the concrete enumeration type ordered by identifier.
-    /// </summary>
-    /// <returns>The declared enumeration values ordered by identifier.</returns>
-    public static IReadOnlyList<TEnumeration> GetAll()
-    {
-        return TEnumeration.GetDeclaredValues();
-    }
-
-    /// <summary>
     /// Gets an enumeration value by its identifier.
     /// </summary>
     /// <param name="id">The enumeration value identifier.</param>
+    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
     /// <returns>The enumeration value with the specified identifier.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the specified identifier is not declared by the concrete enumeration type.
     /// </exception>
-    public static TEnumeration FromId(int id)
+    protected static TEnumeration FromId(int id, Lazy<IReadOnlyList<TEnumeration>> values)
     {
-        if (TryFromId(id, out var item))
+        if (TryFromId(id, values, out var item))
         {
             return item!;
         }
@@ -182,13 +172,14 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Gets an enumeration value by name after trimming surrounding whitespace.
     /// </summary>
     /// <param name="name">The enumeration value name.</param>
+    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
     /// <returns>The enumeration value with the specified name.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the specified name is not declared by the concrete enumeration type.
     /// </exception>
-    public static TEnumeration FromName(string name)
+    protected static TEnumeration FromName(string name, Lazy<IReadOnlyList<TEnumeration>> values)
     {
-        if (TryFromName(name, out var item))
+        if (TryFromName(name, values, out var item))
         {
             return item!;
         }
@@ -201,11 +192,12 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Tries to get an enumeration value by its identifier.
     /// </summary>
     /// <param name="id">The enumeration value identifier.</param>
+    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
     /// <param name="item">When this method returns, contains the matching enumeration value, if found.</param>
     /// <returns><see langword="true"/> if a matching value was found; otherwise, <see langword="false"/>.</returns>
-    public static bool TryFromId(int id, out TEnumeration? item)
+    protected static bool TryFromId(int id, Lazy<IReadOnlyList<TEnumeration>> values, out TEnumeration? item)
     {
-        var items = GetAll();
+        var items = values.Value;
         for (int index = 0; index < items.Count; index++)
         {
             var candidate = items[index];
@@ -224,9 +216,10 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Tries to get an enumeration value by name after trimming surrounding whitespace.
     /// </summary>
     /// <param name="name">The enumeration value name.</param>
+    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
     /// <param name="item">When this method returns, contains the matching enumeration value, if found.</param>
     /// <returns><see langword="true"/> if a matching value was found; otherwise, <see langword="false"/>.</returns>
-    public static bool TryFromName(string name, out TEnumeration? item)
+    protected static bool TryFromName(string name, Lazy<IReadOnlyList<TEnumeration>> values, out TEnumeration? item)
     {
         item = null;
 
@@ -236,7 +229,7 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
         }
 
         string trimmedName = name.Trim();
-        var items = GetAll();
+        var items = values.Value;
         for (int index = 0; index < items.Count; index++)
         {
             var candidate = items[index];

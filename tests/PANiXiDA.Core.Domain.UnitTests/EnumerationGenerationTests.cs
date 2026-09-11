@@ -108,6 +108,23 @@ public sealed partial class EnumerationGenerationTests
             .WithMessage("'' is not a valid name in InitiallyUnusedEnumeration");
     }
 
+    [Theory(DisplayName = "Invalid name input is rejected before generated list validation")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t ")]
+    public void FromName_WithInvalidInput_DoesNotValidateDuplicateValues(string? name)
+    {
+        // Act
+        bool found = DuplicateEnumeration.TryFromName(name!, out var value);
+        Action act = () => DuplicateEnumeration.FromName(name!);
+
+        // Assert
+        found.Should().BeFalse();
+        value.Should().BeNull();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage($"'{name}' is not a valid name in DuplicateEnumeration");
+    }
+
     [Fact(DisplayName = "Enumeration includes values stored in object fields and ignores unrelated members")]
     public void GetAll_WithMixedMembers_ReturnsOnlyDeclaredFieldValues()
     {

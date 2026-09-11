@@ -227,9 +227,11 @@ bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
 IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
-The package includes a C# incremental source generator. It implements
-`IEnumerationValues<OrderStatus>` on the partial class and creates a single
-immutable list using direct references to its public static fields.
+The package includes a C# incremental source generator. It adds `GetAll`,
+`FromId`, `FromName`, `TryFromId`, and `TryFromName` directly to the partial class
+and creates a single immutable list using direct references to its public static
+fields. The generated lookup methods delegate to shared protected methods in
+`Enumeration<TEnumeration>`; no additional interface or generic constraint is required.
 No reflection, assembly scanning, runtime registration,
 or `DynamicallyAccessedMembers` annotation is needed to discover these values.
 Reference the package directly in each project that declares enumeration types.
@@ -252,7 +254,10 @@ The generated list is initialized lazily and safely across threads, after the
 enumeration's static fields have been initialized. Identifiers and names may
 still be computed by field initializers: sorting and duplicate validation run
 once per closed enumeration type. All lookup methods search the same list with
-a linear scan; the base class has no separate cache or lookup dictionaries.
+a linear scan. The generated methods pass the lazy list to the base class,
+which keeps name validation, lookup, and failure behavior in one place.
+Invalid name inputs are rejected before the list is evaluated. The base class
+has no separate cache or lookup dictionaries.
 Changing a static field after list initialization does not update the snapshot.
 Do not call lookup methods from enumeration field initializers.
 
@@ -262,32 +267,37 @@ Version 3 changes the source and binary contract of `Enumeration<TEnumeration>`;
 rebuild consuming projects after updating the package.
 
 - Add `partial` to each concrete enumeration class and every containing type for nested declarations.
-- Add `IEnumerationValues<TEnumeration>` to generic constraints that already require `Enumeration<TEnumeration>`.
-- File-local enumeration types and file-local containing types cannot be extended from generated files; remove `file` or provide the static contract manually.
+- Calls such as `OrderStatus.FromId(2)` keep the same signatures, but the static API is now declared on each concrete enumeration type.
+- Calls through `Enumeration<TEnumeration>.GetAll()`, `FromId`, `FromName`, or their Try variants are no longer available. Generic consumers must receive the values or a delegate to the concrete type's generated method.
+- Generic constraints remain `where TEnumeration : Enumeration<TEnumeration>`.
+- File-local enumeration types and file-local containing types cannot be extended from generated files; remove `file`.
 - `PANENUM001` identifies a missing `partial`; `PANENUM002` identifies a file-local type.
 - `FromName` now follows `TryFromName`: it trims surrounding whitespace and rejects empty or whitespace names, instead of looking up the input exactly as supplied.
 - `FromName(null)` now throws `InvalidOperationException` instead of `ArgumentNullException`, consistently with other invalid names.
 
-For example, a generic helper now declares both constraints:
+For example, a generic consumer can accept the generated lookup method:
 
 ```csharp
 using PANiXiDA.Core.Domain;
-using PANiXiDA.Core.Domain.Abstractions;
 
-public static class EnumerationList
+public static class EnumerationLookup
 {
-    public static IReadOnlyList<TEnumeration> Get<TEnumeration>()
-        where TEnumeration : Enumeration<TEnumeration>, IEnumerationValues<TEnumeration>
-        => Enumeration<TEnumeration>.GetAll();
+    public static TEnumeration Get<TEnumeration>(int id, Func<int, TEnumeration> fromId)
+        where TEnumeration : Enumeration<TEnumeration>
+    {
+        ArgumentNullException.ThrowIfNull(fromId);
+        return fromId(id);
+    }
 }
 ```
 
-The generator skips types that already implement `IEnumerationValues<TEnumeration>`.
-This allows an explicit static `GetDeclaredValues()` implementation returning
-`IReadOnlyList<TEnumeration>` when automatic generation is unsuitable. Manual
-implementations must return the same immutable list on every call, sort it by
-identifier, and reject duplicate identifiers and names. Equality and duplicate
-error behavior of generated enumerations are unchanged.
+```csharp
+OrderStatus submitted = EnumerationLookup.Get(2, OrderStatus.FromId);
+```
+
+The generator supplies all five static methods; do not declare methods with the
+same signatures in the concrete type. Equality and duplicate error behavior of
+generated enumerations are unchanged.
 
 ## Configuration
 

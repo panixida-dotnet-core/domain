@@ -31,7 +31,6 @@ internal static class EnumerationSourceBuilder
         string typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         string baseTypeName = "global::PANiXiDA.Core.Domain.Enumeration<" + typeName + ">";
         string listTypeName = "global::System.Collections.Generic.IReadOnlyList<" + typeName + ">";
-        string contract = "global::PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<" + typeName + ">";
         var memberNames = new HashSet<string>(type.TypeParameters.Select(parameter => parameter.Name));
         for (var current = type; current is not null; current = current.BaseType)
         {
@@ -45,11 +44,10 @@ internal static class EnumerationSourceBuilder
         }
 
         AppendType(builder, type, depth);
-        builder.Append(" : ").AppendLine(contract);
+        builder.AppendLine();
         builder.Append(' ', depth * 4).AppendLine("{");
         string indent = new(' ', (depth + 1) * 4);
-        builder.Append(indent).Append("static ").Append(listTypeName).Append(' ').Append(contract)
-            .Append(".GetDeclaredValues() => ").Append(valuesFieldName).AppendLine(".Value;");
+        AppendLookupMethods(builder, indent, typeName, baseTypeName, listTypeName, valuesFieldName);
         builder.AppendLine();
         builder.Append(indent).Append("private static readonly global::System.Lazy<").Append(listTypeName)
             .Append("> ").Append(valuesFieldName).AppendLine(" = new(static () =>");
@@ -113,6 +111,61 @@ internal static class EnumerationSourceBuilder
         }
 
         return builder.ToString().Replace("\r\n", "\n");
+    }
+
+    private static void AppendLookupMethods(
+        StringBuilder builder,
+        string indent,
+        string typeName,
+        string baseTypeName,
+        string listTypeName,
+        string valuesFieldName)
+    {
+        string methods = $$"""
+            /// <summary>
+            /// Gets all declared enumeration values ordered by identifier.
+            /// </summary>
+            /// <returns>The same immutable list of declared enumeration values on every call.</returns>
+            public static {{listTypeName}} GetAll() => {{valuesFieldName}}.Value;
+
+            /// <summary>
+            /// Gets an enumeration value by its identifier.
+            /// </summary>
+            /// <param name="id">The enumeration value identifier.</param>
+            /// <returns>The enumeration value with the specified identifier.</returns>
+            /// <exception cref="global::System.InvalidOperationException">Thrown when the identifier is not declared.</exception>
+            public static {{typeName}} FromId(int id) => {{baseTypeName}}.FromId(id, {{valuesFieldName}});
+
+            /// <summary>
+            /// Gets an enumeration value by name after trimming surrounding whitespace.
+            /// </summary>
+            /// <param name="name">The enumeration value name.</param>
+            /// <returns>The enumeration value with the specified name.</returns>
+            /// <exception cref="global::System.InvalidOperationException">Thrown when the name is not declared.</exception>
+            public static {{typeName}} FromName(string name) => {{baseTypeName}}.FromName(name, {{valuesFieldName}});
+
+            /// <summary>
+            /// Tries to get an enumeration value by its identifier.
+            /// </summary>
+            /// <param name="id">The enumeration value identifier.</param>
+            /// <param name="item">The matching enumeration value, or null if no value is found.</param>
+            /// <returns>True if a matching value was found; otherwise, false.</returns>
+            public static bool TryFromId(int id, out {{typeName}}? item) =>
+                {{baseTypeName}}.TryFromId(id, {{valuesFieldName}}, out item);
+
+            /// <summary>
+            /// Tries to get an enumeration value by name after trimming surrounding whitespace.
+            /// </summary>
+            /// <param name="name">The enumeration value name.</param>
+            /// <param name="item">The matching enumeration value, or null if no value is found.</param>
+            /// <returns>True if a matching value was found; otherwise, false.</returns>
+            public static bool TryFromName(string name, out {{typeName}}? item) =>
+                {{baseTypeName}}.TryFromName(name, {{valuesFieldName}}, out item);
+            """;
+        foreach (string line in methods.Replace("\r\n", "\n").Split('\n'))
+        {
+            builder.Append(indent).AppendLine(line);
+        }
     }
 
     private static void AppendType(StringBuilder builder, INamedTypeSymbol type, int depth)
