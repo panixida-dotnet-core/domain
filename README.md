@@ -243,7 +243,7 @@ Enumeration behavior:
 - `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
 - `FromName(string)` and `TryFromName(string, out TEnumeration?)` share the same lookup and trim surrounding whitespace.
-- `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `ArgumentNullException` for null and `InvalidOperationException` for other invalid names.
+- `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `InvalidOperationException` in each of these cases.
 - Names are compared with `StringComparer.Ordinal`.
 - Duplicate identifiers or names throw `InvalidOperationException` when the generated list is first accessed.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
@@ -266,6 +266,7 @@ rebuild consuming projects after updating the package.
 - File-local enumeration types and file-local containing types cannot be extended from generated files; remove `file` or provide the static contract manually.
 - `PANENUM001` identifies a missing `partial`; `PANENUM002` identifies a file-local type.
 - `FromName` now follows `TryFromName`: it trims surrounding whitespace and rejects empty or whitespace names, instead of looking up the input exactly as supplied.
+- `FromName(null)` now throws `InvalidOperationException` instead of `ArgumentNullException`, consistently with other invalid names.
 
 For example, a generic helper now declares both constraints:
 

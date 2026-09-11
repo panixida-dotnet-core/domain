@@ -94,14 +94,18 @@ public sealed partial class EnumerationGenerationTests
             .WithMessage("Duplicate id '2' in DuplicateEnumeration");
     }
 
-    [Fact(DisplayName = "FromName preserves the null key exception")]
-    public void FromName_WithNullName_ThrowsArgumentNullException()
+    [Fact(DisplayName = "Null names follow the same failure behavior as other invalid names")]
+    public void FromName_WithNullName_ThrowsWhenTryFromNameReturnsFalse()
     {
         // Act
         Action act = () => InitiallyUnusedEnumeration.FromName(null!);
+        bool found = InitiallyUnusedEnumeration.TryFromName(null!, out var value);
 
         // Assert
-        act.Should().Throw<ArgumentNullException>().Which.ParamName.Should().Be("key");
+        found.Should().BeFalse();
+        value.Should().BeNull();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("'' is not a valid name in InitiallyUnusedEnumeration");
     }
 
     [Fact(DisplayName = "Enumeration includes values stored in object fields and ignores unrelated members")]

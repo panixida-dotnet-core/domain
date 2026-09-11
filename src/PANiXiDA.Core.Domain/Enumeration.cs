@@ -188,8 +188,6 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// </exception>
     public static TEnumeration FromName(string name)
     {
-        ArgumentNullException.ThrowIfNull(name, "key");
-
         if (TryFromName(name, out var item))
         {
             return item!;
