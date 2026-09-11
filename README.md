@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="2.0.0" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
 </ItemGroup>
 ```
 
@@ -41,6 +41,7 @@ dotnet add package PANiXiDA.Core.Domain
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
 - Deterministic lookup behavior for enumeration values by identifier or name.
+- Enumeration field access generated at compile time, compatible with trimming and Native AOT.
 
 ## Namespaces
 
@@ -205,7 +206,7 @@ Use `Enumeration<TEnumeration>` for stable, named domain values that need behavi
 ```csharp
 using PANiXiDA.Core.Domain;
 
-public sealed class OrderStatus : Enumeration<OrderStatus>
+public sealed partial class OrderStatus : Enumeration<OrderStatus>
 {
     public static readonly OrderStatus Draft = new(1, "Draft");
     public static readonly OrderStatus Submitted = new(2, "Submitted");
@@ -226,15 +227,60 @@ bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
 IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
+The package includes a C# incremental source generator. It implements
+`IEnumerationValues<OrderStatus>` on the partial class using direct references to
+its public static fields. No reflection, assembly scanning, runtime registration,
+or `DynamicallyAccessedMembers` annotation is needed to discover these values.
+Reference the package directly in each project that declares enumeration types.
+For source-level project references, also reference the generator project as an
+analyzer; analyzer project references do not flow transitively.
+
 Enumeration behavior:
 
-- `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
+- `GetAll()` returns the same immutable snapshot of public static field values declared on the concrete type, ordered by `Id`.
+- Properties, inherited fields, unrelated values, and null fields are ignored. An `object` field containing an enumeration instance is included.
 - `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
 - `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.
 - Names are compared with `StringComparer.Ordinal`.
 - Duplicate identifiers or names throw `InvalidOperationException` during cache creation.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
+
+Identifiers and names may still be computed by field initializers. The base class
+therefore retains a thread-safe, lazy snapshot with frozen lookup dictionaries:
+sorting and duplicate validation run once per closed enumeration type, and
+subsequent lookups reuse the result. This caches runtime values, not reflection
+metadata. As before, changing a static field after initialization does not update
+the snapshot. Do not call lookup methods from enumeration field initializers.
+
+### Migrating from 2.x
+
+Version 3 changes the source and binary contract of `Enumeration<TEnumeration>`;
+rebuild consuming projects after updating the package.
+
+- Add `partial` to each concrete enumeration class and every containing type for nested declarations.
+- Add `IEnumerationValues<TEnumeration>` to generic constraints that already require `Enumeration<TEnumeration>`.
+- File-local enumeration types and file-local containing types cannot be extended from generated files; remove `file` or provide the static contract manually.
+- `PANENUM001` identifies a missing `partial`; `PANENUM002` identifies a file-local type.
+
+For example, a generic helper now declares both constraints:
+
+```csharp
+using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Abstractions;
+
+public static class EnumerationList
+{
+    public static IReadOnlyList<TEnumeration> Get<TEnumeration>()
+        where TEnumeration : Enumeration<TEnumeration>, IEnumerationValues<TEnumeration>
+        => Enumeration<TEnumeration>.GetAll();
+}
+```
+
+The generator skips types that already implement `IEnumerationValues<TEnumeration>`.
+This allows an explicit static `GetDeclaredValues()` implementation when automatic
+generation is unsuitable. Lookup, equality, name normalization, and duplicate
+error behavior are unchanged.
 
 ## Configuration
 
@@ -280,17 +326,38 @@ dotnet pack --configuration Release
 
 ### Continuous integration
 
-Every pull request and push to `main` runs formatting, tests, and mandatory
-SonarQube analysis. Publishing from `main` starts only after the SonarQube
-Quality Gate succeeds.
+Every pull request and push to `main` runs formatting, tests, a packaged Native
+AOT smoke test, and mandatory SonarQube analysis. The smoke test consumes the
+generated NuGet package, compiles a Linux native executable, and checks value
+discovery, lookups, initialization, and duplicate validation. Publishing from
+`main` requires all checks, including the SonarQube Quality Gate, to succeed.
+
+Run the smoke test locally with project references:
+
+```bash
+dotnet run --project tests/PANiXiDA.Core.Domain.AotSmoke --configuration Release
+```
+
+To reproduce the package and Native AOT check on Linux with the Native AOT build
+prerequisites installed:
+
+```bash
+dotnet pack src/PANiXiDA.Core.Domain --configuration Release --output artifacts/packages
+version="$(dotnet msbuild src/PANiXiDA.Core.Domain/PANiXiDA.Core.Domain.csproj -target:GetNuGetPackageVersion -getProperty:NuGetPackageVersion)"
+dotnet restore tests/PANiXiDA.Core.Domain.AotSmoke -p:UsePackedDomain=true -p:DomainPackageVersion="$version" -p:PublishAot=true --runtime linux-x64 -p:RestoreAdditionalProjectSources="$PWD/artifacts/packages"
+dotnet publish tests/PANiXiDA.Core.Domain.AotSmoke --configuration Release --no-restore --runtime linux-x64 -p:UsePackedDomain=true -p:DomainPackageVersion="$version" -p:PublishAot=true -p:ILLinkTreatWarningsAsErrors=true --output artifacts/aot
+./artifacts/aot/PANiXiDA.Core.Domain.AotSmoke --require-aot
+```
 
 ## Repository Layout
 
 ```text
 .
 |-- src/
+|   |-- PANiXiDA.Core.Domain.Generators/
 |   `-- PANiXiDA.Core.Domain/
 |-- tests/
+|   |-- PANiXiDA.Core.Domain.AotSmoke/
 |   `-- PANiXiDA.Core.Domain.UnitTests/
 |-- Directory.Build.props
 |-- Directory.Build.targets

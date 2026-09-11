@@ -1,6 +1,6 @@
 namespace PANiXiDA.Core.Domain.UnitTests;
 
-public sealed class EnumerationTests
+public sealed partial class EnumerationTests
 {
     [Fact(DisplayName = "Enumeration exposes identifier and name")]
     public void Properties_ReturnConstructorValues()
@@ -380,33 +380,33 @@ public sealed class EnumerationTests
             .WithMessage("Duplicate name 'Same' in DuplicateNameEnumeration");
     }
 
-    private sealed class TestEnumeration(int id, string name) : Enumeration<TestEnumeration>(id, name)
+    private sealed partial class TestEnumeration(int id, string name) : Enumeration<TestEnumeration>(id, name)
     {
         public static readonly TestEnumeration First = new(1, "First");
         public static readonly TestEnumeration Second = new(2, "Second");
     }
 
-    private sealed class EnumerationWithIgnoredField(int id, string name)
+    private sealed partial class EnumerationWithIgnoredField(int id, string name)
         : Enumeration<EnumerationWithIgnoredField>(id, name)
     {
         public static readonly EnumerationWithIgnoredField Item = new(1, "Item");
         public static readonly string Ignored = "Ignored";
     }
 
-    private sealed class UnorderedEnumeration(int id, string name) : Enumeration<UnorderedEnumeration>(id, name)
+    private sealed partial class UnorderedEnumeration(int id, string name) : Enumeration<UnorderedEnumeration>(id, name)
     {
         public static readonly UnorderedEnumeration Second = new(2, "Second");
         public static readonly UnorderedEnumeration First = new(1, "First");
     }
 
-    private sealed class DuplicateIdEnumeration(int id, string name)
+    private sealed partial class DuplicateIdEnumeration(int id, string name)
         : Enumeration<DuplicateIdEnumeration>(id, name)
     {
         public static readonly DuplicateIdEnumeration First = new(1, "First");
         public static readonly DuplicateIdEnumeration Second = new(1, "Second");
     }
 
-    private sealed class DuplicateNameEnumeration(int id, string name)
+    private sealed partial class DuplicateNameEnumeration(int id, string name)
         : Enumeration<DuplicateNameEnumeration>(id, name)
     {
         public static readonly DuplicateNameEnumeration First = new(1, "Same");

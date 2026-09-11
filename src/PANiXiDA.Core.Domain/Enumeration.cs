@@ -1,6 +1,7 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
-using System.Reflection;
+
+using PANiXiDA.Core.Domain.Abstractions;
 
 namespace PANiXiDA.Core.Domain;
 
@@ -11,7 +12,7 @@ namespace PANiXiDA.Core.Domain;
 /// <param name="id">The stable enumeration value identifier.</param>
 /// <param name="name">The enumeration value name.</param>
 public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatable<TEnumeration>, IComparable<TEnumeration>
-    where TEnumeration : Enumeration<TEnumeration>
+    where TEnumeration : Enumeration<TEnumeration>, IEnumerationValues<TEnumeration>
 {
     private static readonly Lazy<EnumerationCache> Cache = new(CreateCache);
 
@@ -252,20 +253,12 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
 
     private static EnumerationCache CreateCache()
     {
-        var fields = typeof(TEnumeration)
-            .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+        var itemsBuilder = ImmutableArray.CreateBuilder<TEnumeration>();
+        var byId = new Dictionary<int, TEnumeration>();
+        var byName = new Dictionary<string, TEnumeration>(StringComparer.Ordinal);
 
-        var itemsBuilder = ImmutableArray.CreateBuilder<TEnumeration>(fields.Length);
-        var byId = new Dictionary<int, TEnumeration>(fields.Length);
-        var byName = new Dictionary<string, TEnumeration>(fields.Length, StringComparer.Ordinal);
-
-        foreach (var field in fields)
+        foreach (var item in TEnumeration.GetDeclaredValues())
         {
-            if (field.GetValue(null) is not TEnumeration item)
-            {
-                continue;
-            }
-
             if (!byId.TryAdd(item.Id, item))
             {
                 throw new InvalidOperationException(
@@ -295,7 +288,7 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
         FrozenDictionary<int, TEnumeration> byId,
         FrozenDictionary<string, TEnumeration> byName)
     {
-        public ImmutableArray<TEnumeration> Items { get; } = items;
+        public IReadOnlyList<TEnumeration> Items { get; } = items;
         public FrozenDictionary<int, TEnumeration> ById { get; } = byId;
         public FrozenDictionary<string, TEnumeration> ByName { get; } = byName;
     }
