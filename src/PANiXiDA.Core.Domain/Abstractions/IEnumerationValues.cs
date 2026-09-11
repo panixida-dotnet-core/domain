@@ -8,8 +8,8 @@ namespace PANiXiDA.Core.Domain.Abstractions;
 public interface IEnumerationValues<out TEnumeration>
 {
     /// <summary>
-    /// Gets the values stored in the public static fields declared on the concrete type.
+    /// Gets the immutable list of values stored in the public static fields declared on the concrete type.
     /// </summary>
-    /// <returns>The declared values before sorting and duplicate validation.</returns>
-    static abstract IEnumerable<TEnumeration> GetDeclaredValues();
+    /// <returns>The same list on every call, ordered by identifier and validated for duplicate identifiers and names.</returns>
+    static abstract IReadOnlyList<TEnumeration> GetDeclaredValues();
 }

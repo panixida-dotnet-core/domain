@@ -23,6 +23,87 @@ public sealed partial class EnumerationGenerationTests
         second.Should().NotBeAssignableTo<InitiallyUnusedEnumeration[]>();
     }
 
+    [Fact(DisplayName = "Generated enumeration lists cannot be modified through a collection interface")]
+    public void GetAll_WhenMutatedThroughCollectionInterface_RejectsChanges()
+    {
+        // Arrange
+        var values = (IList<InitiallyUnusedEnumeration>)InitiallyUnusedEnumeration.GetAll();
+
+        // Act
+        Action act = () => values[0] = InitiallyUnusedEnumeration.Second;
+
+        // Assert
+        act.Should().Throw<NotSupportedException>();
+        values[0].Should().BeSameAs(InitiallyUnusedEnumeration.First);
+    }
+
+    [Fact(DisplayName = "Generated lists include values assigned by an explicit static constructor")]
+    public void FromId_WithStaticConstructor_ReturnsInitializedValue()
+    {
+        // Act
+        var value = StaticConstructorEnumeration.FromId(7);
+
+        // Assert
+        value.Should().BeSameAs(StaticConstructorEnumeration.Item);
+        StaticConstructorEnumeration.GetAll().Should().ContainSingle();
+    }
+
+    [Fact(DisplayName = "Concurrent first lookups return the same generated enumeration list")]
+    public async Task GetAll_WithConcurrentFirstAccess_ReturnsSameList()
+    {
+        // Arrange
+        var tasks = Enumerable.Range(0, 16)
+            .Select(_ => Task.Run(ConcurrentEnumeration.GetAll, TestContext.Current.CancellationToken))
+            .ToArray();
+
+        // Act
+        var lists = await Task.WhenAll(tasks);
+
+        // Assert
+        foreach (var list in lists)
+        {
+            list.Should().BeSameAs(lists[0]);
+            list.Should().Equal(ConcurrentEnumeration.First, ConcurrentEnumeration.Second);
+        }
+    }
+
+    [Fact(DisplayName = "Empty generated enumerations return an empty list and no matching values")]
+    public void Lookups_WithEmptyEnumeration_ReturnNoValues()
+    {
+        // Act
+        var values = EmptyEnumeration.GetAll();
+        bool foundId = EmptyEnumeration.TryFromId(1, out var byId);
+        bool foundName = EmptyEnumeration.TryFromName("Missing", out var byName);
+
+        // Assert
+        values.Should().BeEmpty();
+        foundId.Should().BeFalse();
+        foundName.Should().BeFalse();
+        byId.Should().BeNull();
+        byName.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "Lookup validates all generated values before returning an otherwise valid match")]
+    public void FromId_WithDuplicateValues_ThrowsBeforeReturningMatch()
+    {
+        // Act
+        Action act = () => DuplicateEnumeration.FromId(1);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Duplicate id '2' in DuplicateEnumeration");
+    }
+
+    [Fact(DisplayName = "FromName preserves the null key exception")]
+    public void FromName_WithNullName_ThrowsArgumentNullException()
+    {
+        // Act
+        Action act = () => InitiallyUnusedEnumeration.FromName(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>().Which.ParamName.Should().Be("key");
+    }
+
     [Fact(DisplayName = "Enumeration includes values stored in object fields and ignores unrelated members")]
     public void GetAll_WithMixedMembers_ReturnsOnlyDeclaredFieldValues()
     {
@@ -84,5 +165,31 @@ public sealed partial class EnumerationGenerationTests
     private sealed partial class GenericEnumeration<T>(int id, string name) : Enumeration<GenericEnumeration<T>>(id, name)
     {
         public static readonly GenericEnumeration<T> Item = new(1, "Item");
+    }
+
+    private sealed partial class StaticConstructorEnumeration(int id, string name)
+        : Enumeration<StaticConstructorEnumeration>(id, name)
+    {
+        public static readonly StaticConstructorEnumeration Item;
+
+        static StaticConstructorEnumeration()
+        {
+            Item = new(7, "Item");
+        }
+    }
+
+    private sealed partial class ConcurrentEnumeration(int id, string name) : Enumeration<ConcurrentEnumeration>(id, name)
+    {
+        public static readonly ConcurrentEnumeration Second = new(2, "Second");
+        public static readonly ConcurrentEnumeration First = new(1, "First");
+    }
+
+    private sealed partial class EmptyEnumeration(int id, string name) : Enumeration<EmptyEnumeration>(id, name);
+
+    private sealed partial class DuplicateEnumeration(int id, string name) : Enumeration<DuplicateEnumeration>(id, name)
+    {
+        public static readonly DuplicateEnumeration First = new(1, "First");
+        public static readonly DuplicateEnumeration Second = new(2, "Second");
+        public static readonly DuplicateEnumeration Duplicate = new(2, "Duplicate");
     }
 }

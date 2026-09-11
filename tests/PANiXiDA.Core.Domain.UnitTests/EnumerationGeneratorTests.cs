@@ -63,6 +63,34 @@ public sealed class EnumerationGeneratorTests
         source.Should().Contain(".@First", ".@Second");
     }
 
+    [Fact(DisplayName = "Generator avoids collisions with existing list field names")]
+    public void Generate_WithExistingValuesField_EmitsCompilableProvider()
+    {
+        // Arrange
+        var compilation = CreateCompilation("""
+            public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
+                where T : Base<T>, PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<T>
+            {
+                protected const int __enumerationValues = 1;
+            }
+            public sealed partial class Status<__enumerationValues__>(int id, string name)
+                : Base<Status<__enumerationValues__>>(id, name)
+            {
+                public static readonly Status<__enumerationValues__> __enumerationValues_ = new(1, "First");
+            }
+            """);
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        output.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
+            .Should().BeEmpty();
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().ContainSingle();
+    }
+
     [Theory(DisplayName = "Generator supports nested generic types and escaped identifiers")]
     [InlineData("partial class")]
     [InlineData("static partial class")]
@@ -120,7 +148,7 @@ public sealed class EnumerationGeneratorTests
             public sealed class Manual(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Manual>(id, name),
                 PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<Manual>
             {
-                public static System.Collections.Generic.IEnumerable<Manual> GetDeclaredValues() => [];
+                public static System.Collections.Generic.IReadOnlyList<Manual> GetDeclaredValues() => [];
             }
             """);
 

@@ -1,7 +1,4 @@
-﻿using System.Collections.Frozen;
-using System.Collections.Immutable;
-
-using PANiXiDA.Core.Domain.Abstractions;
+﻿using PANiXiDA.Core.Domain.Abstractions;
 
 namespace PANiXiDA.Core.Domain;
 
@@ -14,8 +11,6 @@ namespace PANiXiDA.Core.Domain;
 public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatable<TEnumeration>, IComparable<TEnumeration>
     where TEnumeration : Enumeration<TEnumeration>, IEnumerationValues<TEnumeration>
 {
-    private static readonly Lazy<EnumerationCache> Cache = new(CreateCache);
-
     /// <summary>
     /// Gets the stable enumeration value identifier.
     /// </summary>
@@ -161,7 +156,7 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// <returns>The declared enumeration values ordered by identifier.</returns>
     public static IReadOnlyList<TEnumeration> GetAll()
     {
-        return Cache.Value.Items;
+        return TEnumeration.GetDeclaredValues();
     }
 
     /// <summary>
@@ -174,9 +169,9 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// </exception>
     public static TEnumeration FromId(int id)
     {
-        if (Cache.Value.ById.TryGetValue(id, out var item))
+        if (TryFromId(id, out var item))
         {
-            return item;
+            return item!;
         }
 
         throw new InvalidOperationException(
@@ -193,7 +188,8 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// </exception>
     public static TEnumeration FromName(string name)
     {
-        if (Cache.Value.ByName.TryGetValue(name, out var item))
+        var item = FindByName(name);
+        if (item is not null)
         {
             return item;
         }
@@ -210,7 +206,19 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// <returns><see langword="true"/> if a matching value was found; otherwise, <see langword="false"/>.</returns>
     public static bool TryFromId(int id, out TEnumeration? item)
     {
-        return Cache.Value.ById.TryGetValue(id, out item);
+        var items = GetAll();
+        for (int index = 0; index < items.Count; index++)
+        {
+            var candidate = items[index];
+            if (candidate.Id == id)
+            {
+                item = candidate;
+                return true;
+            }
+        }
+
+        item = null;
+        return false;
     }
 
     /// <summary>
@@ -228,7 +236,25 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
             return false;
         }
 
-        return Cache.Value.ByName.TryGetValue(name.Trim(), out item);
+        item = FindByName(name.Trim());
+        return item is not null;
+    }
+
+    private static TEnumeration? FindByName(string key)
+    {
+        var items = GetAll();
+        ArgumentNullException.ThrowIfNull(key);
+
+        for (int index = 0; index < items.Count; index++)
+        {
+            var candidate = items[index];
+            if (string.Equals(candidate.Name, key, StringComparison.Ordinal))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static int Compare(Enumeration<TEnumeration>? left, Enumeration<TEnumeration>? right)
@@ -249,47 +275,5 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
         }
 
         return left.Id.CompareTo(right.Id);
-    }
-
-    private static EnumerationCache CreateCache()
-    {
-        var itemsBuilder = ImmutableArray.CreateBuilder<TEnumeration>();
-        var byId = new Dictionary<int, TEnumeration>();
-        var byName = new Dictionary<string, TEnumeration>(StringComparer.Ordinal);
-
-        foreach (var item in TEnumeration.GetDeclaredValues())
-        {
-            if (!byId.TryAdd(item.Id, item))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate id '{item.Id}' in {typeof(TEnumeration).Name}");
-            }
-
-            if (!byName.TryAdd(item.Name, item))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate name '{item.Name}' in {typeof(TEnumeration).Name}");
-            }
-
-            itemsBuilder.Add(item);
-        }
-
-        var items = itemsBuilder.ToImmutable()
-            .Sort(static (left, right) => left.Id.CompareTo(right.Id));
-
-        return new EnumerationCache(
-            items,
-            byId.ToFrozenDictionary(),
-            byName.ToFrozenDictionary(StringComparer.Ordinal));
-    }
-
-    private sealed class EnumerationCache(
-        ImmutableArray<TEnumeration> items,
-        FrozenDictionary<int, TEnumeration> byId,
-        FrozenDictionary<string, TEnumeration> byName)
-    {
-        public IReadOnlyList<TEnumeration> Items { get; } = items;
-        public FrozenDictionary<int, TEnumeration> ById { get; } = byId;
-        public FrozenDictionary<string, TEnumeration> ByName { get; } = byName;
     }
 }

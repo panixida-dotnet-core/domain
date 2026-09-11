@@ -29,14 +29,33 @@ internal static class EnumerationSourceBuilder
         }
 
         string typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        string baseTypeName = "global::PANiXiDA.Core.Domain.Enumeration<" + typeName + ">";
+        string listTypeName = "global::System.Collections.Generic.IReadOnlyList<" + typeName + ">";
         string contract = "global::PANiXiDA.Core.Domain.Abstractions.IEnumerationValues<" + typeName + ">";
+        var memberNames = new HashSet<string>(type.TypeParameters.Select(parameter => parameter.Name));
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            memberNames.UnionWith(current.GetMembers().Select(member => member.Name));
+        }
+
+        string valuesFieldName = "__enumerationValues";
+        while (!memberNames.Add(valuesFieldName))
+        {
+            valuesFieldName += "_";
+        }
+
         AppendType(builder, type, depth);
         builder.Append(" : ").AppendLine(contract);
         builder.Append(' ', depth * 4).AppendLine("{");
         string indent = new(' ', (depth + 1) * 4);
-        builder.Append(indent).Append("static global::System.Collections.Generic.IEnumerable<")
-            .Append(typeName).Append("> ").Append(contract).AppendLine(".GetDeclaredValues()");
+        builder.Append(indent).Append("static ").Append(listTypeName).Append(' ').Append(contract)
+            .Append(".GetDeclaredValues() => ").Append(valuesFieldName).AppendLine(".Value;");
+        builder.AppendLine();
+        builder.Append(indent).Append("private static readonly global::System.Lazy<").Append(listTypeName)
+            .Append("> ").Append(valuesFieldName).AppendLine(" = new(static () =>");
         builder.Append(indent).AppendLine("{");
+        builder.Append(indent).Append("    var items = new global::System.Collections.Generic.List<")
+            .Append(typeName).AppendLine(">();");
 
         int index = 0;
         foreach (var field in type.GetMembers().OfType<IFieldSymbol>()
@@ -46,13 +65,47 @@ internal static class EnumerationSourceBuilder
             builder.Append(indent).Append("    if ((object?)").Append(typeName).Append(".@")
                 .Append(field.Name).Append(" is ").Append(typeName).Append(" value").Append(index).AppendLine(")");
             builder.Append(indent).AppendLine("    {");
-            builder.Append(indent).Append("        yield return value").Append(index).AppendLine(";");
+            builder.Append(indent).Append("        items.Add(value").Append(index).AppendLine(");");
             builder.Append(indent).AppendLine("    }");
             index++;
         }
 
-        builder.Append(indent).AppendLine("    yield break;");
-        builder.Append(indent).AppendLine("}");
+        builder.AppendLine();
+        string initialization = $$"""
+            for (int index = 0; index < items.Count; index++)
+            {
+                {{baseTypeName}} item = items[index];
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if ((({{baseTypeName}})items[previous]).Id == item.Id)
+                    {
+                        throw new global::System.InvalidOperationException(
+                            $"Duplicate id '{item.Id}' in {typeof({{typeName}}).Name}");
+                    }
+                }
+
+                global::System.ArgumentNullException.ThrowIfNull(item.Name, "key");
+                for (int previous = 0; previous < index; previous++)
+                {
+                    if (global::System.String.Equals((({{baseTypeName}})items[previous]).Name,
+                        item.Name, global::System.StringComparison.Ordinal))
+                    {
+                        throw new global::System.InvalidOperationException(
+                            $"Duplicate name '{item.Name}' in {typeof({{typeName}}).Name}");
+                    }
+                }
+            }
+
+            items.Sort(static (left, right) =>
+                (({{baseTypeName}})left).Id.CompareTo((({{baseTypeName}})right).Id));
+            return items.AsReadOnly();
+            """;
+        foreach (string line in initialization.Replace("\r\n", "\n").Split('\n'))
+        {
+            builder.Append(indent).Append("    ").AppendLine(line);
+        }
+
+        builder.Append(indent).AppendLine("});");
         builder.Append(' ', depth * 4).AppendLine("}");
         while (depth > 0)
         {

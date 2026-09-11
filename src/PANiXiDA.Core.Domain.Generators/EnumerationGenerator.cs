@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace PANiXiDA.Core.Domain.Generators;
 
 /// <summary>
-/// Generates direct access to the declared fields of partial enumeration types.
+/// Generates immutable value lists from the declared fields of partial enumeration types.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class EnumerationGenerator : IIncrementalGenerator

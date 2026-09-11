@@ -228,8 +228,9 @@ IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
 The package includes a C# incremental source generator. It implements
-`IEnumerationValues<OrderStatus>` on the partial class using direct references to
-its public static fields. No reflection, assembly scanning, runtime registration,
+`IEnumerationValues<OrderStatus>` on the partial class and creates a single
+immutable list using direct references to its public static fields.
+No reflection, assembly scanning, runtime registration,
 or `DynamicallyAccessedMembers` annotation is needed to discover these values.
 Reference the package directly in each project that declares enumeration types.
 For source-level project references, also reference the generator project as an
@@ -243,15 +244,16 @@ Enumeration behavior:
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
 - `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.
 - Names are compared with `StringComparer.Ordinal`.
-- Duplicate identifiers or names throw `InvalidOperationException` during cache creation.
+- Duplicate identifiers or names throw `InvalidOperationException` when the generated list is first accessed.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
 
-Identifiers and names may still be computed by field initializers. The base class
-therefore retains a thread-safe, lazy snapshot with frozen lookup dictionaries:
-sorting and duplicate validation run once per closed enumeration type, and
-subsequent lookups reuse the result. This caches runtime values, not reflection
-metadata. As before, changing a static field after initialization does not update
-the snapshot. Do not call lookup methods from enumeration field initializers.
+The generated list is initialized lazily and safely across threads, after the
+enumeration's static fields have been initialized. Identifiers and names may
+still be computed by field initializers: sorting and duplicate validation run
+once per closed enumeration type. All lookup methods search the same list with
+a linear scan; the base class has no separate cache or lookup dictionaries.
+Changing a static field after list initialization does not update the snapshot.
+Do not call lookup methods from enumeration field initializers.
 
 ### Migrating from 2.x
 
@@ -278,9 +280,11 @@ public static class EnumerationList
 ```
 
 The generator skips types that already implement `IEnumerationValues<TEnumeration>`.
-This allows an explicit static `GetDeclaredValues()` implementation when automatic
-generation is unsuitable. Lookup, equality, name normalization, and duplicate
-error behavior are unchanged.
+This allows an explicit static `GetDeclaredValues()` implementation returning
+`IReadOnlyList<TEnumeration>` when automatic generation is unsuitable. Manual
+implementations must return the same immutable list on every call, sort it by
+identifier, and reject duplicate identifiers and names. Lookup, equality, name
+normalization, and duplicate error behavior of generated enumerations are unchanged.
 
 ## Configuration
 
