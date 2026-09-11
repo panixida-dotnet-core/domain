@@ -173,6 +173,50 @@ public sealed class EnumerationGeneratorTests
         outputs.Should().NotBeEmpty().And.OnlyContain(output => output.Reason == IncrementalStepRunReason.Cached);
     }
 
+    [Fact(DisplayName = "Generator updates field access after a value is added")]
+    public void Generate_AfterAddingValue_UpdatesProvider()
+    {
+        var compilation = CreateCompilation("""
+            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name)
+            {
+                public static readonly Status First = new(1, "First");
+            }
+            """);
+        GeneratorDriver driver = CreateDriver().RunGenerators(compilation, TestContext.Current.CancellationToken);
+        var updated = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText("""
+            public partial class Status
+            {
+                public static readonly Status Second = new(2, "Second");
+            }
+            """, ParseOptions, cancellationToken: TestContext.Current.CancellationToken));
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(updated, out var output, out _,
+            TestContext.Current.CancellationToken);
+
+        AssertCompiles(output);
+        string source = driver.GetRunResult().Results.Single().GeneratedSources.Single().SourceText.ToString();
+        source.Should().Contain(".@First", ".@Second");
+    }
+
+    [Fact(DisplayName = "Generator removes diagnostics after a declaration is made partial")]
+    public void Generate_AfterAddingPartial_ReplacesDiagnosticWithProvider()
+    {
+        const string original = "public class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name) { }";
+        var compilation = CreateCompilation(original);
+        GeneratorDriver driver = CreateDriver().RunGenerators(compilation, TestContext.Current.CancellationToken);
+        driver.GetRunResult().Diagnostics.Should().ContainSingle().Which.Id.Should().Be("PANENUM001");
+        var corrected = CSharpSyntaxTree.ParseText(original.Replace("public class", "public partial class", StringComparison.Ordinal),
+            ParseOptions, "Source0.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var updated = compilation.ReplaceSyntaxTree(compilation.SyntaxTrees.Single(), corrected);
+
+        driver = driver.RunGeneratorsAndUpdateCompilation(updated, out var output, out _,
+            TestContext.Current.CancellationToken);
+
+        AssertCompiles(output);
+        driver.GetRunResult().Diagnostics.Should().BeEmpty();
+        driver.GetRunResult().Results.Single().GeneratedSources.Should().ContainSingle();
+    }
+
     private static CSharpCompilation CreateCompilation(params string[] sources)
     {
         return CSharpCompilation.Create("GeneratorTest",

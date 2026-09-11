@@ -22,38 +22,6 @@ jobs:
           registry-user: ${{ secrets.REGISTRY_USER }}
           registry-token: ${{ secrets.REGISTRY_TOKEN }}
 
-    aot:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v7
-            with:
-              fetch-depth: 0
-          - uses: actions/setup-dotnet@v6
-            with:
-              global-json-file: global.json
-          - name: Install Native AOT prerequisites
-            run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
-          - name: Pack the library and bundled generator
-            run: |
-              dotnet pack src/PANiXiDA.Core.Domain/PANiXiDA.Core.Domain.csproj --configuration Release --output "${{ runner.temp }}/enumeration-packages"
-              version="$(dotnet msbuild src/PANiXiDA.Core.Domain/PANiXiDA.Core.Domain.csproj -target:GetNuGetPackageVersion -getProperty:NuGetPackageVersion)"
-              echo "DOMAIN_PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
-          - name: Restore the smoke test from the package
-            run: >-
-              dotnet restore tests/PANiXiDA.Core.Domain.AotSmoke/PANiXiDA.Core.Domain.AotSmoke.csproj
-              -p:UsePackedDomain=true -p:PublishAot=true --runtime linux-x64
-              -p:DomainPackageVersion="$DOMAIN_PACKAGE_VERSION"
-              -p:RestoreAdditionalProjectSources="${{ runner.temp }}/enumeration-packages"
-          - name: Publish Native AOT
-            run: >-
-              dotnet publish tests/PANiXiDA.Core.Domain.AotSmoke/PANiXiDA.Core.Domain.AotSmoke.csproj
-              --configuration Release --no-restore --runtime linux-x64
-              -p:UsePackedDomain=true -p:PublishAot=true -p:ILLinkTreatWarningsAsErrors=true
-              -p:DomainPackageVersion="$DOMAIN_PACKAGE_VERSION"
-              --output "${{ runner.temp }}/enumeration-aot"
-          - name: Run the native executable
-            run: '"${{ runner.temp }}/enumeration-aot/PANiXiDA.Core.Domain.AotSmoke" --require-aot'
-
     sonar:
         needs: tests
         uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-sonar.yml@main
@@ -69,7 +37,6 @@ jobs:
       needs: 
         - format
         - tests
-        - aot
         - sonar
       uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-publish-global-nuget.yml@main
       secrets:

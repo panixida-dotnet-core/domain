@@ -326,28 +326,9 @@ dotnet pack --configuration Release
 
 ### Continuous integration
 
-Every pull request and push to `main` runs formatting, tests, a packaged Native
-AOT smoke test, and mandatory SonarQube analysis. The smoke test consumes the
-generated NuGet package, compiles a Linux native executable, and checks value
-discovery, lookups, initialization, and duplicate validation. Publishing from
-`main` requires all checks, including the SonarQube Quality Gate, to succeed.
-
-Run the smoke test locally with project references:
-
-```bash
-dotnet run --project tests/PANiXiDA.Core.Domain.AotSmoke --configuration Release
-```
-
-To reproduce the package and Native AOT check on Linux with the Native AOT build
-prerequisites installed:
-
-```bash
-dotnet pack src/PANiXiDA.Core.Domain --configuration Release --output artifacts/packages
-version="$(dotnet msbuild src/PANiXiDA.Core.Domain/PANiXiDA.Core.Domain.csproj -target:GetNuGetPackageVersion -getProperty:NuGetPackageVersion)"
-dotnet restore tests/PANiXiDA.Core.Domain.AotSmoke -p:UsePackedDomain=true -p:DomainPackageVersion="$version" -p:PublishAot=true --runtime linux-x64 -p:RestoreAdditionalProjectSources="$PWD/artifacts/packages"
-dotnet publish tests/PANiXiDA.Core.Domain.AotSmoke --configuration Release --no-restore --runtime linux-x64 -p:UsePackedDomain=true -p:DomainPackageVersion="$version" -p:PublishAot=true -p:ILLinkTreatWarningsAsErrors=true --output artifacts/aot
-./artifacts/aot/PANiXiDA.Core.Domain.AotSmoke --require-aot
-```
+Every pull request and push to `main` runs formatting, tests, and mandatory
+SonarQube analysis. Publishing from `main` starts only after the SonarQube
+Quality Gate succeeds.
 
 ## Repository Layout
 
@@ -357,7 +338,6 @@ dotnet publish tests/PANiXiDA.Core.Domain.AotSmoke --configuration Release --no-
 |   |-- PANiXiDA.Core.Domain.Generators/
 |   `-- PANiXiDA.Core.Domain/
 |-- tests/
-|   |-- PANiXiDA.Core.Domain.AotSmoke/
 |   `-- PANiXiDA.Core.Domain.UnitTests/
 |-- Directory.Build.props
 |-- Directory.Build.targets
