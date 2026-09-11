@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace PANiXiDA.Core.Domain.Generators;
+namespace PANiXiDA.Core.Domain.Generators.Enumerations;
 
 /// <summary>
 /// Generates immutable value lists and lookup methods for partial enumeration types.

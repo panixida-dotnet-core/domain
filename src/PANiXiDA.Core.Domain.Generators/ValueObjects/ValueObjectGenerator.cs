@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace PANiXiDA.Core.Domain.Generators;
+namespace PANiXiDA.Core.Domain.Generators.ValueObjects;
 
 /// <summary>
 /// Generates equality components and string representations for partial value objects.
@@ -13,6 +13,7 @@ namespace PANiXiDA.Core.Domain.Generators;
 [Generator(LanguageNames.CSharp)]
 public sealed class ValueObjectGenerator : IIncrementalGenerator
 {
+    // Keep this identifier stable to recognize generated overrides in referenced assemblies.
     internal const string GeneratorName = "PANiXiDA.Core.Domain.Generators.ValueObjectGenerator";
     private const string ValueObjectTypeName = "PANiXiDA.Core.Domain.ValueObject";
 

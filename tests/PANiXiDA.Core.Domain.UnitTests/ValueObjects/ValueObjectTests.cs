@@ -1,4 +1,4 @@
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.ValueObjects;
 
 public sealed class ValueObjectTests
 {

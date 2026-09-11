@@ -1,4 +1,4 @@
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.Enumerations;
 
 public sealed partial class EnumerationGenerationTests
 {

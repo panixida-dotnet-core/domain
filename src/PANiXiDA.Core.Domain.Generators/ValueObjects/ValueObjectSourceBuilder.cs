@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace PANiXiDA.Core.Domain.Generators;
+namespace PANiXiDA.Core.Domain.Generators.ValueObjects;
 
 internal static class ValueObjectSourceBuilder
 {

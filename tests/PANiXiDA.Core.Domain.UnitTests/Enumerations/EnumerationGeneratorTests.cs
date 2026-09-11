@@ -1,9 +1,9 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-using PANiXiDA.Core.Domain.Generators;
+using PANiXiDA.Core.Domain.Generators.Enumerations;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.Enumerations;
 
 public sealed class EnumerationGeneratorTests
 {

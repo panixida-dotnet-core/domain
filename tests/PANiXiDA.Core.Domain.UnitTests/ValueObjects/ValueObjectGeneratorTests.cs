@@ -1,9 +1,9 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-using PANiXiDA.Core.Domain.Generators;
+using PANiXiDA.Core.Domain.Generators.ValueObjects;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.ValueObjects;
 
 public sealed class ValueObjectGeneratorTests
 {

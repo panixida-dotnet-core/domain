@@ -2,7 +2,7 @@ using System.Text;
 
 using Microsoft.CodeAnalysis;
 
-namespace PANiXiDA.Core.Domain.Generators;
+namespace PANiXiDA.Core.Domain.Generators.Enumerations;
 
 internal static class EnumerationSourceBuilder
 {

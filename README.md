@@ -393,9 +393,15 @@ Quality Gate succeeds.
 .
 |-- src/
 |   |-- PANiXiDA.Core.Domain.Generators/
+|   |   |-- Enumerations/
+|   |   |-- ValueObjects/
+|   |   |-- GenerationResult.cs
+|   |   `-- TypeSourceBuilder.cs
 |   `-- PANiXiDA.Core.Domain/
 |-- tests/
 |   `-- PANiXiDA.Core.Domain.UnitTests/
+|       |-- Enumerations/
+|       `-- ValueObjects/
 |-- Directory.Build.props
 |-- Directory.Build.targets
 |-- Directory.Packages.props
