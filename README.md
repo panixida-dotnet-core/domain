@@ -173,17 +173,11 @@ Use `ValueObject` for immutable concepts where equality is based on values inste
 ```csharp
 using PANiXiDA.Core.Domain;
 
-public sealed class Money(decimal amount, string currency) : ValueObject
+public sealed partial class Money(decimal amount, string currency) : ValueObject
 {
     public decimal Amount { get; } = amount;
 
     public string Currency { get; } = currency;
-
-    protected override IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Amount;
-        yield return Currency;
-    }
 }
 ```
 
@@ -192,12 +186,58 @@ Money first = new(10m, "USD");
 Money second = new(10m, "USD");
 
 bool areEqual = first == second;
+string text = first.ToString(); // Money { Amount = 10, Currency = USD }
 ```
 
 Value object equality uses:
 
 - the same runtime type;
 - the ordered sequence returned by `GetEqualityComponents()`.
+
+The source generator supplies `GetEqualityComponents()` and `ToString()` for
+concrete partial value objects. Add `partial` to containing types for nested
+declarations. The generator uses public instance auto-properties with a public
+getter and either no setter or an `init` accessor. Constants, fields, static
+properties, indexers, mutable properties, and computed getters are excluded.
+Adding a selected property changes the generated equality and hash behavior.
+
+Inherited auto-properties are included before properties of the concrete type.
+Within each type, properties are ordered by source file path and declaration
+position; metadata-only properties are ordered by name. A hidden or overridden
+property replaces the property of the same name from the base type. Component
+comparison follows the existing `ValueObject` behavior; collections are not
+automatically compared element by element.
+
+Each manually declared override takes precedence independently. For example,
+keep a custom `ToString()` while generating equality:
+
+```csharp
+public sealed partial class Email(string value) : ValueObject
+{
+    public string Value { get; } = value;
+
+    public override string ToString() => Value;
+}
+```
+
+Generated `ToString()` prints `TypeName { Property = value, ... }` using the actual
+equality components, invariant numeric/date formatting, and `null` for a null
+component. If `GetEqualityComponents()` is implemented manually, its values have
+no property names; automatic text uses `[0]`, `[1]`, and so on instead. Empty
+manual component sequences produce `TypeName { }`. Both methods can be written
+manually to keep full control over comparison and display.
+
+Inherited manual overrides are also preserved. Abstract value object classes
+are not generated. Existing non-partial types with a manual equality
+implementation continue to work unchanged; making a type partial opts it into
+generation of missing methods. Constructors, factories, and validation remain
+handwritten.
+
+`PANVO001` reports a missing `partial`, `PANVO002` reports a file-local type or
+container, and `PANVO003` reports an automatic equality definition with no
+eligible properties. In that case, implement `GetEqualityComponents()` explicitly.
+The generator is included in the package; source-level project references must
+also reference the generator project as an analyzer, as described below for enumerations.
 
 ## Enumeration
 

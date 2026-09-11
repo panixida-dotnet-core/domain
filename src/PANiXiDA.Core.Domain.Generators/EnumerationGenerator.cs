@@ -46,7 +46,7 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
         {
             if (generation.ErrorType is not null)
             {
-                var descriptor = generation.IsFileLocal ? FileLocalUnsupported : PartialRequired;
+                var descriptor = generation.DiagnosticId == FileLocalUnsupported.Id ? FileLocalUnsupported : PartialRequired;
                 var location = Location.Create(generation.Path, generation.Span, generation.LineSpan);
                 productionContext.ReportDiagnostic(Diagnostic.Create(descriptor, location, generation.ErrorType));
                 return;
@@ -86,13 +86,14 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
                 if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
                 {
                     var location = syntax.Identifier.GetLocation();
-                    return GenerationResult.Error(current.Name, isFileLocal, location);
+                    return GenerationResult.Error(current.Name,
+                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id, location);
                 }
             }
         }
 
         string source = EnumerationSourceBuilder.Build(type);
-        return GenerationResult.Success(GetHintName(type), source);
+        return GenerationResult.Success(TypeSourceBuilder.GetHintName(type, "Enumeration"), source);
     }
 
     private static bool IsEnumeration(INamedTypeSymbol type)
@@ -106,20 +107,5 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
         }
 
         return false;
-    }
-
-    private static string GetHintName(INamedTypeSymbol type)
-    {
-        var names = new Stack<string>();
-        for (var current = type; current is not null; current = current.ContainingType)
-        {
-            names.Push(current.MetadataName);
-        }
-
-        string prefix = type.ContainingNamespace.IsGlobalNamespace
-            ? string.Empty
-            : type.ContainingNamespace.ToDisplayString().Replace("@", string.Empty) + ".";
-
-        return prefix + string.Join("+", names) + ".Enumeration.g.cs";
     }
 }

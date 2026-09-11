@@ -8,19 +8,19 @@ internal readonly record struct GenerationResult
     public string HintName { get; }
     public string Source { get; }
     public string? ErrorType { get; }
-    public bool IsFileLocal { get; }
+    public string? DiagnosticId { get; }
     public string Path { get; }
     public TextSpan Span { get; }
     public LinePositionSpan LineSpan { get; }
 
     private GenerationResult(
-        string hintName, string source, string? errorType, bool isFileLocal,
+        string hintName, string source, string? errorType, string? diagnosticId,
         string path, TextSpan span, LinePositionSpan lineSpan)
     {
         HintName = hintName;
         Source = source;
         ErrorType = errorType;
-        IsFileLocal = isFileLocal;
+        DiagnosticId = diagnosticId;
         Path = path;
         Span = span;
         LineSpan = lineSpan;
@@ -28,13 +28,13 @@ internal readonly record struct GenerationResult
 
     public static GenerationResult Success(string hintName, string source)
     {
-        return new GenerationResult(hintName, source, null, false, string.Empty, default, default);
+        return new GenerationResult(hintName, source, null, null, string.Empty, default, default);
     }
 
-    public static GenerationResult Error(string typeName, bool isFileLocal, Location location)
+    public static GenerationResult Error(string typeName, string diagnosticId, Location location)
     {
         var lineSpan = location.GetLineSpan();
-        return new GenerationResult(string.Empty, string.Empty, typeName, isFileLocal,
+        return new GenerationResult(string.Empty, string.Empty, typeName, diagnosticId,
             lineSpan.Path, location.SourceSpan, lineSpan.Span);
     }
 }
