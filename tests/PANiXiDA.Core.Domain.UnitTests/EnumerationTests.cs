@@ -74,6 +74,39 @@ public sealed partial class EnumerationTests
             .WithMessage("'Unknown' is not a valid name in TestEnumeration");
     }
 
+    [Theory(DisplayName = "FromName and TryFromName use the same trimmed name lookup")]
+    [InlineData("First")]
+    [InlineData(" First ")]
+    [InlineData("\tFirst\r\n")]
+    public void FromName_WithValidName_ReturnsSameValueAsTryFromName(string name)
+    {
+        // Act
+        var value = TestEnumeration.FromName(name);
+        bool found = TestEnumeration.TryFromName(name, out var triedValue);
+
+        // Assert
+        found.Should().BeTrue();
+        value.Should().BeSameAs(TestEnumeration.First).And.BeSameAs(triedValue);
+    }
+
+    [Theory(DisplayName = "FromName throws when the shared name lookup returns false")]
+    [InlineData("Unknown")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("first")]
+    public void FromName_WithInvalidName_ThrowsWhenTryFromNameReturnsFalse(string name)
+    {
+        // Act
+        Action act = () => TestEnumeration.FromName(name);
+        bool found = TestEnumeration.TryFromName(name, out var triedValue);
+
+        // Assert
+        found.Should().BeFalse();
+        triedValue.Should().BeNull();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage($"'{name}' is not a valid name in TestEnumeration");
+    }
+
     [Fact(DisplayName = "TryFromId returns matching enumeration value")]
     public void TryFromId_WhenIdExists_ReturnsTrueAndMatchingValue()
     {

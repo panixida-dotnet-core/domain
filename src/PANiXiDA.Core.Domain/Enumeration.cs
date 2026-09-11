@@ -179,19 +179,20 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     }
 
     /// <summary>
-    /// Gets an enumeration value by its exact name.
+    /// Gets an enumeration value by name after trimming surrounding whitespace.
     /// </summary>
-    /// <param name="name">The exact enumeration value name.</param>
+    /// <param name="name">The enumeration value name.</param>
     /// <returns>The enumeration value with the specified name.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the specified name is not declared by the concrete enumeration type.
     /// </exception>
     public static TEnumeration FromName(string name)
     {
-        var item = FindByName(name);
-        if (item is not null)
+        ArgumentNullException.ThrowIfNull(name, "key");
+
+        if (TryFromName(name, out var item))
         {
-            return item;
+            return item!;
         }
 
         throw new InvalidOperationException(
@@ -236,25 +237,19 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
             return false;
         }
 
-        item = FindByName(name.Trim());
-        return item is not null;
-    }
-
-    private static TEnumeration? FindByName(string key)
-    {
+        string trimmedName = name.Trim();
         var items = GetAll();
-        ArgumentNullException.ThrowIfNull(key);
-
         for (int index = 0; index < items.Count; index++)
         {
             var candidate = items[index];
-            if (string.Equals(candidate.Name, key, StringComparison.Ordinal))
+            if (string.Equals(candidate.Name, trimmedName, StringComparison.Ordinal))
             {
-                return candidate;
+                item = candidate;
+                return true;
             }
         }
 
-        return null;
+        return false;
     }
 
     private static int Compare(Enumeration<TEnumeration>? left, Enumeration<TEnumeration>? right)
