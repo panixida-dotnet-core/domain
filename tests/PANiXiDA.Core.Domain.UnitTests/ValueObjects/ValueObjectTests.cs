@@ -1,3 +1,5 @@
+using PANiXiDA.Core.Domain.ValueObjects;
+
 namespace PANiXiDA.Core.Domain.UnitTests.ValueObjects;
 
 public sealed class ValueObjectTests

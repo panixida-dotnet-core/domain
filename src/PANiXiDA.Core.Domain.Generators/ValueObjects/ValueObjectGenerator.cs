@@ -15,7 +15,7 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 {
     // Keep this identifier stable to recognize generated overrides in referenced assemblies.
     internal const string GeneratorName = "PANiXiDA.Core.Domain.Generators.ValueObjectGenerator";
-    private const string ValueObjectTypeName = "PANiXiDA.Core.Domain.ValueObject";
+    private const string ValueObjectTypeName = "PANiXiDA.Core.Domain.ValueObjects.ValueObject";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANVO001", "Value object generation requires partial types",

@@ -1,3 +1,5 @@
+using PANiXiDA.Core.Domain.Enumerations;
+
 namespace PANiXiDA.Core.Domain.UnitTests.Enumerations;
 
 public sealed partial class EnumerationTests

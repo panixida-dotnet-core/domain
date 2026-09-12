@@ -10,7 +10,7 @@ internal static class EnumerationSourceBuilder
     {
         var (builder, depth) = TypeSourceBuilder.Begin(type);
         string typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        string baseTypeName = "global::PANiXiDA.Core.Domain.Enumeration<" + typeName + ">";
+        string baseTypeName = "global::PANiXiDA.Core.Domain.Enumerations.Enumeration<" + typeName + ">";
         string listTypeName = "global::System.Collections.Generic.IReadOnlyList<" + typeName + ">";
         var memberNames = new HashSet<string>(type.TypeParameters.Select(parameter => parameter.Name));
         for (var current = type; current is not null; current = current.BaseType)

@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 using PANiXiDA.Core.Domain.Generators.ValueObjects;
+using PANiXiDA.Core.Domain.ValueObjects;
 
 namespace PANiXiDA.Core.Domain.UnitTests.ValueObjects;
 
@@ -28,7 +29,7 @@ public sealed class ValueObjectGeneratorTests
             : string.Empty;
         string toString = manualToString ? "public override string ToString() => Value;" : string.Empty;
         var compilation = CreateCompilation($$"""
-            public sealed partial class Email(string value) : PANiXiDA.Core.Domain.ValueObject
+            public sealed partial class Email(string value) : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public string Value { get; } = value;
                 {{equality}}
@@ -71,7 +72,7 @@ public sealed class ValueObjectGeneratorTests
             namespace @event;
             public {{kind}} Container<T> where T : class
             {
-                private sealed partial class @class(T value) : PANiXiDA.Core.Domain.ValueObject
+                private sealed partial class @class(T value) : PANiXiDA.Core.Domain.ValueObjects.ValueObject
                 {
                     public T @default { get; } = value;
                 }
@@ -99,7 +100,7 @@ public sealed class ValueObjectGeneratorTests
     public void Generate_WithUnsupportedDeclaration_ReportsDiagnostic(string declaration, string members, string id, string typeName)
     {
         // Arrange
-        string source = declaration + " : PANiXiDA.Core.Domain.ValueObject { " + members + " }"
+        string source = declaration + " : PANiXiDA.Core.Domain.ValueObjects.ValueObject { " + members + " }"
             + (typeName == "Container" ? " }" : string.Empty);
 
         // Act
@@ -119,8 +120,8 @@ public sealed class ValueObjectGeneratorTests
         // Arrange
         var compilation = CreateCompilation("""
             public class Unrelated : System.Exception { }
-            public abstract class AbstractValue : PANiXiDA.Core.Domain.ValueObject { }
-            public sealed class ManualValue : PANiXiDA.Core.Domain.ValueObject
+            public abstract class AbstractValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject { }
+            public sealed class ManualValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 protected override System.Collections.Generic.IEnumerable<object?> GetEqualityComponents() => [];
             }
@@ -140,7 +141,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var compilation = CreateCompilation("""
-            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObject
+            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public int First { get; } = 1;
                 public string ToString(string prefix) => prefix;
@@ -169,7 +170,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var baseCompilation = CreateCompilation("""
-            public abstract class StoredValue : PANiXiDA.Core.Domain.ValueObject
+            public abstract class StoredValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public string BaseValue { get; } = "base";
                 public string Computed => "computed";
@@ -201,7 +202,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var baseCompilation = CreateCompilation("""
-            public partial class StoredValue : PANiXiDA.Core.Domain.ValueObject
+            public partial class StoredValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public string BaseValue { get; } = "base";
             }
@@ -231,7 +232,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var compilation = CreateCompilation("""
-            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObject
+            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public int First { get; } = 1;
             }
@@ -263,7 +264,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var compilation = CreateCompilation("""
-            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObject
+            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public int Number { get; } = 1;
             }
@@ -288,7 +289,7 @@ public sealed class ValueObjectGeneratorTests
     {
         // Arrange
         var compilation = CreateCompilation("""
-            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObject
+            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
                 public int Number { get; } = 1;
             }

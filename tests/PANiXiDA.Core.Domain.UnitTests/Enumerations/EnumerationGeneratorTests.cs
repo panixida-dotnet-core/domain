@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
+using PANiXiDA.Core.Domain.Enumerations;
 using PANiXiDA.Core.Domain.Generators.Enumerations;
 
 namespace PANiXiDA.Core.Domain.UnitTests.Enumerations;
@@ -21,7 +22,7 @@ public sealed class EnumerationGeneratorTests
         var compilation = CreateCompilation("""
             namespace Example;
             public sealed partial class Status(int id, string name)
-                : PANiXiDA.Core.Domain.Enumeration<Status>(id, name)
+                : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
             {
                 public static readonly Status First = new(1, "First");
                 public static readonly object Boxed = new Status(2, "Second");
@@ -51,7 +52,7 @@ public sealed class EnumerationGeneratorTests
     public void Generate_WithMultiplePartialDeclarations_EmitsOneCompleteProvider()
     {
         var compilation = CreateCompilation("""
-            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name)
+            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
             {
                 public static readonly Status First = new(1, "First");
             }
@@ -75,7 +76,7 @@ public sealed class EnumerationGeneratorTests
     {
         // Arrange
         var compilation = CreateCompilation("""
-            public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
+            public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<T>(id, name)
                 where T : Base<T>
             {
                 protected const int __enumerationValues = 1;
@@ -114,7 +115,7 @@ public sealed class EnumerationGeneratorTests
             public {{kind}} Container<T> where T : class
             {
                 private sealed partial class @class(int id, string name)
-                    : PANiXiDA.Core.Domain.Enumeration<@class>(id, name)
+                    : PANiXiDA.Core.Domain.Enumerations.Enumeration<@class>(id, name)
                 {
                     public static readonly @class @default = new(1, "First");
                 }
@@ -134,7 +135,7 @@ public sealed class EnumerationGeneratorTests
     [InlineData("public class Container { public partial class Status", "PANENUM001", "Container")]
     public void Generate_WithUnsupportedDeclaration_ReportsDiagnostic(string declaration, string id, string typeName)
     {
-        string source = declaration + "(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name) { }"
+        string source = declaration + "(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name) { }"
             + (typeName == "Container" ? " }" : string.Empty);
         var compilation = CreateCompilation(source);
 
@@ -152,7 +153,7 @@ public sealed class EnumerationGeneratorTests
     {
         var compilation = CreateCompilation("""
             public class Unrelated : System.Exception { }
-            public abstract class Generic<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
+            public abstract class Generic<T>(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<T>(id, name)
                 where T : Generic<T>;
             """);
 
@@ -167,7 +168,7 @@ public sealed class EnumerationGeneratorTests
     public void Generate_WithIndirectInheritance_ReadsOnlyConcreteTypeFields()
     {
         var compilation = CreateCompilation("""
-            public abstract class Intermediate<T>(int id, string name) : PANiXiDA.Core.Domain.Enumeration<T>(id, name)
+            public abstract class Intermediate<T>(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<T>(id, name)
                 where T : Intermediate<T>
             {
                 public static readonly object Inherited = new object();
@@ -192,7 +193,7 @@ public sealed class EnumerationGeneratorTests
         var compilation = CreateCompilation("""
             using System;
             using System.Collections.Generic;
-            using PANiXiDA.Core.Domain;
+            using PANiXiDA.Core.Domain.Enumerations;
 
             public sealed partial class Status(int id, string name) : Enumeration<Status>(id, name)
             {
@@ -225,7 +226,7 @@ public sealed class EnumerationGeneratorTests
     public void Generate_AfterUnrelatedEdit_ReusesGeneratedOutput()
     {
         var compilation = CreateCompilation("""
-            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name)
+            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
             {
                 public static readonly Status Item = new(1, "Item");
             }
@@ -245,7 +246,7 @@ public sealed class EnumerationGeneratorTests
     public void Generate_AfterAddingValue_UpdatesProvider()
     {
         var compilation = CreateCompilation("""
-            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name)
+            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
             {
                 public static readonly Status First = new(1, "First");
             }
@@ -269,7 +270,7 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generator removes diagnostics after a declaration is made partial")]
     public void Generate_AfterAddingPartial_ReplacesDiagnosticWithProvider()
     {
-        const string original = "public class Status(int id, string name) : PANiXiDA.Core.Domain.Enumeration<Status>(id, name) { }";
+        const string original = "public class Status(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name) { }";
         var compilation = CreateCompilation(original);
         GeneratorDriver driver = CreateDriver().RunGenerators(compilation, TestContext.Current.CancellationToken);
         driver.GetRunResult().Diagnostics.Should().ContainSingle().Which.Id.Should().Be("PANENUM001");

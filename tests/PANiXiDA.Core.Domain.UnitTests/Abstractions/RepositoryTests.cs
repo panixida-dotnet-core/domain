@@ -1,7 +1,7 @@
 using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.Identifiers;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.Abstractions;
 
 public sealed class RepositoryTests
 {

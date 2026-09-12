@@ -13,7 +13,7 @@ namespace PANiXiDA.Core.Domain.Generators.Enumerations;
 [Generator(LanguageNames.CSharp)]
 public sealed class EnumerationGenerator : IIncrementalGenerator
 {
-    private const string EnumerationTypeName = "PANiXiDA.Core.Domain.Enumeration<TEnumeration>";
+    private const string EnumerationTypeName = "PANiXiDA.Core.Domain.Enumerations.Enumeration<TEnumeration>";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANENUM001",

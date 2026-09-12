@@ -46,12 +46,13 @@ dotnet add package PANiXiDA.Core.Domain
 ## Namespaces
 
 ```csharp
-using PANiXiDA.Core.Domain;
 using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Enumerations;
 using PANiXiDA.Core.Domain.Identifiers;
+using PANiXiDA.Core.Domain.ValueObjects;
 ```
 
 ## Strongly Typed Identifier
@@ -171,7 +172,7 @@ Read-only application concerns should depend on `IReadRepository<TId>` from `PAN
 Use `ValueObject` for immutable concepts where equality is based on values instead of identity.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.ValueObjects;
 
 public sealed partial class Money(decimal amount, string currency) : ValueObject
 {
@@ -229,9 +230,10 @@ manually to keep full control over comparison and display.
 
 Inherited manual overrides are also preserved. Abstract value object classes
 are not generated. Existing non-partial types with a manual equality
-implementation continue to work unchanged; making a type partial opts it into
-generation of missing methods. Constructors, factories, and validation remain
-handwritten.
+implementation keep their behavior after updating the namespace import to
+`PANiXiDA.Core.Domain.ValueObjects` and rebuilding. Making a type partial opts it
+into generation of missing methods. Constructors, factories, and validation
+remain handwritten.
 
 `PANVO001` reports a missing `partial`, `PANVO002` reports a file-local type or
 container, and `PANVO003` reports an automatic equality definition with no
@@ -244,7 +246,7 @@ also reference the generator project as an analyzer, as described below for enum
 Use `Enumeration<TEnumeration>` for stable, named domain values that need behavior and lookup methods.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Enumerations;
 
 public sealed partial class OrderStatus : Enumeration<OrderStatus>
 {
@@ -301,10 +303,22 @@ has no separate cache or lookup dictionaries.
 Changing a static field after list initialization does not update the snapshot.
 Do not call lookup methods from enumeration field initializers.
 
-### Migrating from 2.x
+## Migrating from 2.x
 
-Version 3 changes the source and binary contract of `Enumeration<TEnumeration>`;
-rebuild consuming projects after updating the package.
+Version 3 changes the source and binary contracts of `Enumeration<TEnumeration>`
+and `ValueObject`. Both types move from `PANiXiDA.Core.Domain` to namespaces
+matching their folders. Update imports and fully qualified references, then
+rebuild consuming projects after updating the package:
+
+| Type | New namespace |
+| --- | --- |
+| `Enumeration<TEnumeration>` | `PANiXiDA.Core.Domain.Enumerations` |
+| `ValueObject` | `PANiXiDA.Core.Domain.ValueObjects` |
+
+Existing value objects with manual equality can retain their implementations.
+Add `partial` to opt into generation of missing methods as described above.
+
+Enumeration migration also requires the following changes:
 
 - Add `partial` to each concrete enumeration class and every containing type for nested declarations.
 - Calls such as `OrderStatus.FromId(2)` keep the same signatures, but the static API is now declared on each concrete enumeration type.
@@ -318,7 +332,7 @@ rebuild consuming projects after updating the package.
 For example, a generic consumer can accept the generated lookup method:
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Enumerations;
 
 public static class EnumerationLookup
 {
@@ -398,9 +412,21 @@ Quality Gate succeeds.
 |   |   |-- GenerationResult.cs
 |   |   `-- TypeSourceBuilder.cs
 |   `-- PANiXiDA.Core.Domain/
+|       |-- Abstractions/
+|       |-- AggregateRoots/
+|       |-- DomainEvents/
+|       |-- Entities/
+|       |-- Enumerations/
+|       |-- Identifiers/
+|       `-- ValueObjects/
 |-- tests/
 |   `-- PANiXiDA.Core.Domain.UnitTests/
+|       |-- Abstractions/
+|       |-- AggregateRoots/
+|       |-- DomainEvents/
+|       |-- Entities/
 |       |-- Enumerations/
+|       |-- Identifiers/
 |       `-- ValueObjects/
 |-- Directory.Build.props
 |-- Directory.Build.targets

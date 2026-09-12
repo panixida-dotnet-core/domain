@@ -1,4 +1,4 @@
-﻿namespace PANiXiDA.Core.Domain;
+﻿namespace PANiXiDA.Core.Domain.Enumerations;
 
 /// <summary>
 /// Represents an extensible enumeration value with a stable identifier and name.

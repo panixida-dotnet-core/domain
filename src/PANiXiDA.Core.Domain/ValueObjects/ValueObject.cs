@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
 
-namespace PANiXiDA.Core.Domain;
+namespace PANiXiDA.Core.Domain.ValueObjects;
 
 /// <summary>
 /// Represents a value object whose equality is based on component values.

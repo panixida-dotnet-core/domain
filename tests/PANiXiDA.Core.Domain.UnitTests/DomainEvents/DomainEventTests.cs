@@ -1,6 +1,6 @@
 using PANiXiDA.Core.Domain.DomainEvents;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.DomainEvents;
 
 public sealed class DomainEventTests
 {

@@ -2,7 +2,7 @@ using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Identifiers;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.AggregateRoots;
 
 public sealed class AggregateRootTests
 {

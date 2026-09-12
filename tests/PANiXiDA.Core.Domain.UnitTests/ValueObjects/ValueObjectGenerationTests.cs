@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using PANiXiDA.Core.Domain.ValueObjects;
+
 namespace PANiXiDA.Core.Domain.UnitTests.ValueObjects;
 
 public sealed partial class ValueObjectGenerationTests
