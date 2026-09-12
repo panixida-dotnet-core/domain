@@ -403,8 +403,9 @@ dotnet pack --configuration Release
 ### Continuous integration
 
 Every pull request and push to `main` runs formatting, tests, and mandatory
-SonarQube analysis. The format job builds the source generator before checking
-the solution. The test workflow also requires 100% line and branch coverage;
+SonarQube analysis. The shared format workflow uses `build-before-format: true`
+to build the solution and its source generator before checking formatting.
+The test workflow also requires 100% line and branch coverage;
 passing test cases alone does not satisfy this check. Publishing from `main`
 starts only after the SonarQube Quality Gate succeeds.
 
