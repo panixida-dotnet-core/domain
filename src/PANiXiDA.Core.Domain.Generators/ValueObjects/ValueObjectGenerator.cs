@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 
 using Microsoft.CodeAnalysis;
@@ -63,14 +64,16 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
     private static GenerationResult? CreateGeneration(GeneratorSyntaxContext context, CancellationToken cancellationToken)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
-        if (context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol type
-            || type.IsAbstract || !IsValueObject(type))
+        var type = context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken)!;
+        if (type.IsAbstract || !IsValueObject(type))
         {
             return null;
         }
 
-        bool generateEquality = !HasMethod(type, "GetEqualityComponents");
-        bool generateToString = !HasMethod(type, "ToString");
+        var compilation = context.SemanticModel.Compilation;
+        var generatedCodeAttributes = compilation.GetTypesByMetadataName("System.CodeDom.Compiler.GeneratedCodeAttribute");
+        bool generateEquality = !HasMethod(type, "GetEqualityComponents", generatedCodeAttributes);
+        bool generateToString = !HasMethod(type, "ToString", generatedCodeAttributes);
         if ((!generateEquality && !generateToString)
             || (!generateEquality && !declaration.Modifiers.Any(SyntaxKind.PartialKeyword)))
         {
@@ -100,7 +103,12 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
             }
         }
 
-        var properties = generateEquality ? GetProperties(type, cancellationToken) : [];
+        var properties = generateEquality
+            ? GetProperties(
+                type,
+                compilation.GetTypesByMetadataName("System.Runtime.CompilerServices.CompilerGeneratedAttribute"),
+                cancellationToken)
+            : [];
         if (generateEquality && properties.Count == 0)
         {
             return GenerationResult.Error(type.Name, ComponentsRequired.Id, declaration.Identifier.GetLocation());
@@ -123,10 +131,13 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         return false;
     }
 
-    private static bool HasMethod(INamedTypeSymbol type, string name)
+    private static bool HasMethod(
+        INamedTypeSymbol type,
+        string name,
+        ImmutableArray<INamedTypeSymbol> generatedCodeAttributes)
     {
-        for (var current = type; current is not null && current.ToDisplayString() != ValueObjectTypeName;
-             current = current.BaseType)
+        // IsValueObject has already verified that this hierarchy reaches ValueObject.
+        for (var current = type; current.ToDisplayString() != ValueObjectTypeName; current = current.BaseType!)
         {
             var method = current.GetMembers(name).OfType<IMethodSymbol>()
                 .FirstOrDefault(member => member.MethodKind == MethodKind.Ordinary
@@ -139,7 +150,9 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
                 }
 
                 bool isGenerated = method.GetAttributes().Any(attribute =>
-                    attribute.AttributeClass?.ToDisplayString() == "System.CodeDom.Compiler.GeneratedCodeAttribute"
+                    generatedCodeAttributes.Any(attributeType => SymbolEqualityComparer.Default.Equals(
+                        attribute.AttributeClass,
+                        attributeType))
                     && attribute.ConstructorArguments.Length > 0
                     && attribute.ConstructorArguments[0].Value is string tool && tool == GeneratorName);
                 if (!isGenerated)
@@ -152,26 +165,32 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         return false;
     }
 
-    private static List<IPropertySymbol> GetProperties(INamedTypeSymbol type, CancellationToken cancellationToken)
+    private static List<IPropertySymbol> GetProperties(
+        INamedTypeSymbol type,
+        ImmutableArray<INamedTypeSymbol> compilerGeneratedAttributes,
+        CancellationToken cancellationToken)
     {
         var hierarchy = new Stack<INamedTypeSymbol>();
-        for (var current = type; current is not null && current.ToDisplayString() != ValueObjectTypeName;
-             current = current.BaseType)
+        // IsValueObject has already verified that this hierarchy reaches ValueObject.
+        for (var current = type; current.ToDisplayString() != ValueObjectTypeName; current = current.BaseType!)
         {
             hierarchy.Push(current);
         }
 
         return hierarchy.SelectMany(current => current.GetMembers().OfType<IPropertySymbol>()
-                .OrderBy(property => property.Locations.FirstOrDefault()?.SourceTree?.FilePath, StringComparer.Ordinal)
-                .ThenBy(property => property.Locations.FirstOrDefault()?.SourceSpan.Start ?? 0)
+                .OrderBy(property => property.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal)
+                .ThenBy(property => property.Locations[0].SourceSpan.Start)
                 .ThenBy(property => property.Name, StringComparer.Ordinal))
             .GroupBy(property => property.Name, StringComparer.Ordinal)
             .Select(group => group.Last())
-            .Where(property => IsEqualityProperty(property, cancellationToken))
+            .Where(property => IsEqualityProperty(property, compilerGeneratedAttributes, cancellationToken))
             .ToList();
     }
 
-    private static bool IsEqualityProperty(IPropertySymbol property, CancellationToken cancellationToken)
+    private static bool IsEqualityProperty(
+        IPropertySymbol property,
+        ImmutableArray<INamedTypeSymbol> compilerGeneratedAttributes,
+        CancellationToken cancellationToken)
     {
         if (property.IsStatic || property.IsIndexer || property.IsAbstract
             || property.GetMethod?.DeclaredAccessibility != Accessibility.Public
@@ -182,8 +201,10 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 
         if (property.DeclaringSyntaxReferences.Length == 0)
         {
-            return property.GetMethod.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString()
-                == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+            return property.GetMethod.GetAttributes().Any(attribute =>
+                compilerGeneratedAttributes.Any(attributeType => SymbolEqualityComparer.Default.Equals(
+                    attribute.AttributeClass,
+                    attributeType)));
         }
 
         return property.DeclaringSyntaxReferences.Any(reference =>

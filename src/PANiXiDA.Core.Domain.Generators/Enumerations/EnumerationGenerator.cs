@@ -61,8 +61,8 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
         CancellationToken cancellationToken)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
-        if (context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol type
-            || !IsEnumeration(type))
+        var type = context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken)!;
+        if (!IsEnumeration(type))
         {
             return null;
         }

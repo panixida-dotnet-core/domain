@@ -11,10 +11,39 @@ permissions:
 
 jobs:
     format:
-        uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-format.yml@main
-        secrets:
-          registry-user: ${{ secrets.REGISTRY_USER }}
-          registry-token: ${{ secrets.REGISTRY_TOKEN }}
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v7
+
+          - uses: actions/setup-dotnet@v6
+            with:
+              dotnet-version: '10.0.x'
+
+          - name: Create nuget.config
+            if: ${{ vars.NUGET_CONFIG != '' }}
+            env:
+              NUGET_CONFIG: ${{ vars.NUGET_CONFIG }}
+              NUGET_PROVIDER: ${{ vars.NUGET_PROVIDER }}
+              REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+              REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+            run: echo "$NUGET_CONFIG" | envsubst > nuget.config
+
+          - name: Cache NuGet packages
+            uses: actions/cache@v6
+            with:
+              path: ~/.nuget/packages
+              key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
+              restore-keys: |
+                nuget-${{ runner.os }}-
+
+          - name: Restore .NET solution
+            run: dotnet restore
+
+          - name: Build source generators for formatting
+            run: dotnet build src/PANiXiDA.Core.Domain.Generators/PANiXiDA.Core.Domain.Generators.csproj --no-restore
+
+          - name: Run .NET format
+            run: dotnet format --verify-no-changes --severity warn --no-restore
         
     tests:
         uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-tests.yml@main
