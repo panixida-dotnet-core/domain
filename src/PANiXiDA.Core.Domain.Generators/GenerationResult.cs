@@ -14,8 +14,13 @@ internal readonly record struct GenerationResult
     public LinePositionSpan LineSpan { get; }
 
     private GenerationResult(
-        string hintName, string source, string? errorType, string? diagnosticId,
-        string path, TextSpan span, LinePositionSpan lineSpan)
+        string hintName,
+        string source,
+        string? errorType,
+        string? diagnosticId,
+        string path,
+        TextSpan span,
+        LinePositionSpan lineSpan)
     {
         HintName = hintName;
         Source = source;
@@ -26,15 +31,33 @@ internal readonly record struct GenerationResult
         LineSpan = lineSpan;
     }
 
-    public static GenerationResult Success(string hintName, string source)
+    public static GenerationResult Success(
+        string hintName,
+        string source)
     {
-        return new GenerationResult(hintName, source, null, null, string.Empty, default, default);
+        return new GenerationResult(
+            hintName,
+            source,
+            null,
+            null,
+            string.Empty,
+            default,
+            default);
     }
 
-    public static GenerationResult Error(string typeName, string diagnosticId, Location location)
+    public static GenerationResult Error(
+        string typeName,
+        string diagnosticId,
+        Location location)
     {
         var lineSpan = location.GetLineSpan();
-        return new GenerationResult(string.Empty, string.Empty, typeName, diagnosticId,
-            lineSpan.Path, location.SourceSpan, lineSpan.Span);
+        return new GenerationResult(
+            string.Empty,
+            string.Empty,
+            typeName,
+            diagnosticId,
+            lineSpan.Path,
+            location.SourceSpan,
+            lineSpan.Span);
     }
 }
