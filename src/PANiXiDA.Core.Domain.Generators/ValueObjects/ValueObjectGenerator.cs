@@ -16,22 +16,23 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 {
     // Keep this identifier stable to recognize generated overrides in referenced assemblies.
     internal const string GeneratorName = "PANiXiDA.Core.Domain.Generators.ValueObjectGenerator";
+    private const string ValueObjectName = "ValueObject";
     private const string ValueObjectTypeName = "PANiXiDA.Core.Domain.ValueObjects.ValueObject";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANVO001", "Value object generation requires partial types",
         "Type '{0}' must be partial to generate value object methods",
-        "ValueObject", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        ValueObjectName, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor FileLocalUnsupported = new(
         "PANVO002", "File-local types cannot contain generated value objects",
         "Type '{0}' must not be file-local to generate value object methods",
-        "ValueObject", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        ValueObjectName, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor ComponentsRequired = new(
         "PANVO003", "Automatic equality requires stored properties",
         "Type '{0}' has no public read-only or init-only auto-properties; implement GetEqualityComponents explicitly",
-        "ValueObject", DiagnosticSeverity.Error, isEnabledByDefault: true);
+        ValueObjectName, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -89,18 +90,10 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
             return null;
         }
 
-        for (var current = type; current is not null; current = current.ContainingType)
+        var declarationError = ValidateDeclarations(type, cancellationToken);
+        if (declarationError.HasValue)
         {
-            foreach (var reference in current.DeclaringSyntaxReferences)
-            {
-                var syntax = (TypeDeclarationSyntax)reference.GetSyntax(cancellationToken);
-                bool isFileLocal = syntax.Modifiers.Any(SyntaxKind.FileKeyword);
-                if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
-                {
-                    return GenerationResult.Error(current.Name,
-                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id, syntax.Identifier.GetLocation());
-                }
-            }
+            return declarationError;
         }
 
         var properties = generateEquality
@@ -115,7 +108,30 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         }
 
         string source = ValueObjectSourceBuilder.Build(type, properties, generateEquality, generateToString);
-        return GenerationResult.Success(TypeSourceBuilder.GetHintName(type, "ValueObject"), source);
+        return GenerationResult.Success(TypeSourceBuilder.GetHintName(type, ValueObjectName), source);
+    }
+
+    private static GenerationResult? ValidateDeclarations(
+        INamedTypeSymbol type,
+        CancellationToken cancellationToken)
+    {
+        for (var current = type; current is not null; current = current.ContainingType)
+        {
+            foreach (var reference in current.DeclaringSyntaxReferences)
+            {
+                var syntax = (TypeDeclarationSyntax)reference.GetSyntax(cancellationToken);
+                bool isFileLocal = syntax.Modifiers.Any(SyntaxKind.FileKeyword);
+                if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
+                {
+                    return GenerationResult.Error(
+                        current.Name,
+                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id,
+                        syntax.Identifier.GetLocation());
+                }
+            }
+        }
+
+        return null;
     }
 
     private static bool IsValueObject(INamedTypeSymbol type)
@@ -177,14 +193,16 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
             hierarchy.Push(current);
         }
 
-        return hierarchy.SelectMany(current => current.GetMembers().OfType<IPropertySymbol>()
-                .OrderBy(property => property.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal)
-                .ThenBy(property => property.Locations[0].SourceSpan.Start)
-                .ThenBy(property => property.Name, StringComparer.Ordinal))
-            .GroupBy(property => property.Name, StringComparer.Ordinal)
-            .Select(group => group.Last())
-            .Where(property => IsEqualityProperty(property, compilerGeneratedAttributes, cancellationToken))
-            .ToList();
+        return
+        [
+            .. hierarchy.SelectMany(current => current.GetMembers().OfType<IPropertySymbol>()
+                    .OrderBy(property => property.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal)
+                    .ThenBy(property => property.Locations[0].SourceSpan.Start)
+                    .ThenBy(property => property.Name, StringComparer.Ordinal))
+                .GroupBy(property => property.Name, StringComparer.Ordinal)
+                .Select(group => group.Last())
+                .Where(property => IsEqualityProperty(property, compilerGeneratedAttributes, cancellationToken))
+        ];
     }
 
     private static bool IsEqualityProperty(

@@ -18,12 +18,13 @@ internal static class EnumerationSourceBuilder
             memberNames.UnionWith(current.GetMembers().Select(member => member.Name));
         }
 
-        string valuesFieldName = "__enumerationValues";
-        while (!memberNames.Add(valuesFieldName))
+        var valuesFieldNameBuilder = new StringBuilder("__enumerationValues");
+        while (!memberNames.Add(valuesFieldNameBuilder.ToString()))
         {
-            valuesFieldName += "_";
+            valuesFieldNameBuilder.Append('_');
         }
 
+        string valuesFieldName = valuesFieldNameBuilder.ToString();
         string indent = new(' ', (depth + 1) * 4);
         AppendLookupMethods(builder, indent, typeName, baseTypeName, listTypeName, valuesFieldName);
         builder.AppendLine();

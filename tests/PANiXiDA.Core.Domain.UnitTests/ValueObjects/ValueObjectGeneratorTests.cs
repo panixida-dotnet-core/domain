@@ -10,11 +10,12 @@ public sealed class ValueObjectGeneratorTests
 {
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
     private static readonly MetadataReference[] References =
-        ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-        .Append(typeof(ValueObject).Assembly.Location)
-        .Distinct(StringComparer.Ordinal)
-        .Select(path => MetadataReference.CreateFromFile(path))
-        .ToArray();
+    [
+        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Append(typeof(ValueObject).Assembly.Location)
+            .Distinct(StringComparer.Ordinal)
+            .Select(path => MetadataReference.CreateFromFile(path))
+    ];
 
     [Theory(DisplayName = "Generator preserves each manually declared method independently")]
     [InlineData(false, false)]
@@ -170,7 +171,10 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
-        source.Should().Contain("yield return this.@First;", "yield return this.@Second;", "public override string ToString()");
+        source.Should().ContainAll(
+            "yield return this.@First;",
+            "yield return this.@Second;",
+            "public override string ToString()");
     }
 
     [Fact(DisplayName = "Generator recognizes inherited auto-properties in referenced assemblies")]
@@ -205,7 +209,7 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
-        source.Should().Contain("yield return this.@BaseValue;", "yield return this.@Number;");
+        source.Should().ContainAll("yield return this.@BaseValue;", "yield return this.@Number;");
         source.Should().NotContain(".@Computed");
     }
 
@@ -236,7 +240,10 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
-        source.Should().Contain("yield return this.@BaseValue;", "yield return this.@Number;", "public override string ToString()");
+        source.Should().ContainAll(
+            "yield return this.@BaseValue;",
+            "yield return this.@Number;",
+            "public override string ToString()");
     }
 
     [Theory(DisplayName = "Inherited manual overrides are preserved regardless of unrelated attributes")]
@@ -293,7 +300,7 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
-        source.Should().Contain("yield return this.@Number;", "public override string ToString()");
+        source.Should().ContainAll("yield return this.@Number;", "public override string ToString()");
     }
 
     [Fact(DisplayName = "Generator ignores unimplemented abstract properties while a type is being edited")]
@@ -400,7 +407,7 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
-        source.Should().Contain("yield return this.@Stored;", "yield return this.@Number;")
+        source.Should().ContainAll("yield return this.@Stored;", "yield return this.@Number;")
             .And.NotContain("this.@Computed").And.NotContain("ManualValue");
     }
 
@@ -431,7 +438,10 @@ public sealed class ValueObjectGeneratorTests
         var result = driver.GetRunResult();
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
-        source.Should().Contain("yield return this.@First;", "yield return this.@Second;", "[\"First\", \"Second\"]");
+        source.Should().ContainAll(
+            "yield return this.@First;",
+            "yield return this.@Second;",
+            "[\"First\", \"Second\"]");
     }
 
     [Theory(DisplayName = "Adding a manual override removes only its generated implementation")]
@@ -492,7 +502,7 @@ public sealed class ValueObjectGeneratorTests
                 nullableContextOptions: NullableContextOptions.Enable));
     }
 
-    private static GeneratorDriver CreateDriver()
+    private static CSharpGeneratorDriver CreateDriver()
     {
         return CSharpGeneratorDriver.Create([new ValueObjectGenerator().AsSourceGenerator()],
             parseOptions: ParseOptions,

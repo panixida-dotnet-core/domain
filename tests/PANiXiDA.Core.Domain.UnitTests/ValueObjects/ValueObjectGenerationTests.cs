@@ -213,7 +213,7 @@ public sealed partial class ValueObjectGenerationTests
         public string Mutable { get; set; } = string.Empty;
         public readonly int Field = 42;
         public static string Static => throw new InvalidOperationException("Static getter must not be called.");
-        public string Computed => throw new InvalidOperationException("Computed getter must not be called.");
+        public string Computed => throw new InvalidOperationException($"Computed getter must not be called for '{Value}'.");
         public string this[int index] => throw new InvalidOperationException("Indexer must not be called.");
     }
 

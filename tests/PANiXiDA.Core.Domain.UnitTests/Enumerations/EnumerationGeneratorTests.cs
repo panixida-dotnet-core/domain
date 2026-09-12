@@ -10,11 +10,12 @@ public sealed class EnumerationGeneratorTests
 {
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
     private static readonly MetadataReference[] References =
-        ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-        .Append(typeof(Enumeration<>).Assembly.Location)
-        .Distinct(StringComparer.Ordinal)
-        .Select(path => MetadataReference.CreateFromFile(path))
-        .ToArray();
+    [
+        .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Append(typeof(Enumeration<>).Assembly.Location)
+            .Distinct(StringComparer.Ordinal)
+            .Select(path => MetadataReference.CreateFromFile(path))
+    ];
 
     [Fact(DisplayName = "Generator emits direct field access and lookup methods on the concrete type")]
     public void Generate_WithPartialEnumeration_EmitsDirectFieldAccess()
@@ -36,7 +37,7 @@ public sealed class EnumerationGeneratorTests
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
-        source.Should().Contain("global::Example.Status.@First", "global::Example.Status.@Boxed");
+        source.Should().ContainAll("global::Example.Status.@First", "global::Example.Status.@Boxed");
         source.Should().NotContain(".@Hidden").And.NotContain(".@Property");
         source.Should().NotContain("System.Reflection").And.NotContain("GetFields");
         var status = output.GetTypeByMetadataName("Example.Status")!;
@@ -68,7 +69,7 @@ public sealed class EnumerationGeneratorTests
 
         AssertCompiles(output);
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
-        source.Should().Contain(".@First", ".@Second");
+        source.Should().ContainAll(".@First", ".@Second");
     }
 
     [Fact(DisplayName = "Generator avoids collisions with existing list field names")]
@@ -264,7 +265,7 @@ public sealed class EnumerationGeneratorTests
 
         AssertCompiles(output);
         string source = driver.GetRunResult().Results.Single().GeneratedSources.Single().SourceText.ToString();
-        source.Should().Contain(".@First", ".@Second");
+        source.Should().ContainAll(".@First", ".@Second");
     }
 
     [Fact(DisplayName = "Generator removes diagnostics after a declaration is made partial")]
@@ -294,7 +295,7 @@ public sealed class EnumerationGeneratorTests
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
     }
 
-    private static GeneratorDriver CreateDriver()
+    private static CSharpGeneratorDriver CreateDriver()
     {
         return CSharpGeneratorDriver.Create([new EnumerationGenerator().AsSourceGenerator()],
             parseOptions: ParseOptions,
