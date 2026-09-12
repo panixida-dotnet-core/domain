@@ -11,8 +11,7 @@ permissions:
 
 jobs:
     format:
-        # build-before-format: https://github.com/panixida-infrastructure/ci-cd/pull/20
-        uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-format.yml@40e191270f23740253da73036e28a9bce0eef426
+        uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-format.yml@main
         with:
           build-before-format: true
         secrets:
