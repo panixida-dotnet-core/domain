@@ -11,8 +11,7 @@ permissions:
 
 jobs:
     format:
-        # Full history for versioning: https://github.com/panixida-infrastructure/ci-cd/pull/21
-        uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-format.yml@5ffdda39a8b177500c23da94d8c82d518e9b350e
+        uses: PANiXiDA-Infrastructure/ci-cd/.github/workflows/dotnet-format.yml@main
         with:
           build-before-format: true
         secrets:
