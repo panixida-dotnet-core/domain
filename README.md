@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="2.0.0" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
 </ItemGroup>
 ```
 
@@ -41,16 +41,18 @@ dotnet add package PANiXiDA.Core.Domain
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
 - Deterministic lookup behavior for enumeration values by identifier or name.
+- Enumeration field access generated at compile time, compatible with trimming and Native AOT.
 
 ## Namespaces
 
 ```csharp
-using PANiXiDA.Core.Domain;
 using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Enumerations;
 using PANiXiDA.Core.Domain.Identifiers;
+using PANiXiDA.Core.Domain.ValueObjects;
 ```
 
 ## Strongly Typed Identifier
@@ -170,19 +172,13 @@ Read-only application concerns should depend on `IReadRepository<TId>` from `PAN
 Use `ValueObject` for immutable concepts where equality is based on values instead of identity.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.ValueObjects;
 
-public sealed class Money(decimal amount, string currency) : ValueObject
+public sealed partial class Money(decimal amount, string currency) : ValueObject
 {
     public decimal Amount { get; } = amount;
 
     public string Currency { get; } = currency;
-
-    protected override IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Amount;
-        yield return Currency;
-    }
 }
 ```
 
@@ -191,6 +187,7 @@ Money first = new(10m, "USD");
 Money second = new(10m, "USD");
 
 bool areEqual = first == second;
+string text = first.ToString(); // Money { Amount = 10, Currency = USD }
 ```
 
 Value object equality uses:
@@ -198,14 +195,60 @@ Value object equality uses:
 - the same runtime type;
 - the ordered sequence returned by `GetEqualityComponents()`.
 
+The source generator supplies `GetEqualityComponents()` and `ToString()` for
+concrete partial value objects. Add `partial` to containing types for nested
+declarations. The generator uses public instance auto-properties with a public
+getter and either no setter or an `init` accessor. Constants, fields, static
+properties, indexers, mutable properties, and computed getters are excluded.
+Adding a selected property changes the generated equality and hash behavior.
+
+Inherited auto-properties are included before properties of the concrete type.
+Within each type, properties are ordered by source file path and declaration
+position; metadata-only properties are ordered by name. A hidden or overridden
+property replaces the property of the same name from the base type. Component
+comparison follows the existing `ValueObject` behavior; collections are not
+automatically compared element by element.
+
+Each manually declared override takes precedence independently. For example,
+keep a custom `ToString()` while generating equality:
+
+```csharp
+public sealed partial class Email(string value) : ValueObject
+{
+    public string Value { get; } = value;
+
+    public override string ToString() => Value;
+}
+```
+
+Generated `ToString()` prints `TypeName { Property = value, ... }` using the actual
+equality components, invariant numeric/date formatting, and `null` for a null
+component. If `GetEqualityComponents()` is implemented manually, its values have
+no property names; automatic text uses `[0]`, `[1]`, and so on instead. Empty
+manual component sequences produce `TypeName { }`. Both methods can be written
+manually to keep full control over comparison and display.
+
+Inherited manual overrides are also preserved. Abstract value object classes
+are not generated. Existing non-partial types with a manual equality
+implementation keep their behavior after updating the namespace import to
+`PANiXiDA.Core.Domain.ValueObjects` and rebuilding. Making a type partial opts it
+into generation of missing methods. Constructors, factories, and validation
+remain handwritten.
+
+`PANVO001` reports a missing `partial`, `PANVO002` reports a file-local type or
+container, and `PANVO003` reports an automatic equality definition with no
+eligible properties. In that case, implement `GetEqualityComponents()` explicitly.
+The generator is included in the package; source-level project references must
+also reference the generator project as an analyzer, as described below for enumerations.
+
 ## Enumeration
 
 Use `Enumeration<TEnumeration>` for stable, named domain values that need behavior and lookup methods.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Enumerations;
 
-public sealed class OrderStatus : Enumeration<OrderStatus>
+public sealed partial class OrderStatus : Enumeration<OrderStatus>
 {
     public static readonly OrderStatus Draft = new(1, "Draft");
     public static readonly OrderStatus Submitted = new(2, "Submitted");
@@ -226,15 +269,89 @@ bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
 IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
+The package includes a C# incremental source generator. It adds `GetAll`,
+`FromId`, `FromName`, `TryFromId`, and `TryFromName` directly to the partial class
+and creates a single immutable list using direct references to its public static
+fields. The generated lookup methods delegate to shared protected methods in
+`Enumeration<TEnumeration>`; no additional interface or generic constraint is required.
+No reflection, assembly scanning, runtime registration,
+or `DynamicallyAccessedMembers` annotation is needed to discover these values.
+Reference the package directly in each project that declares enumeration types.
+For source-level project references, also reference the generator project as an
+analyzer; analyzer project references do not flow transitively.
+
 Enumeration behavior:
 
-- `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
+- `GetAll()` returns the same immutable snapshot of public static field values declared on the concrete type, ordered by `Id`.
+- Properties, inherited fields, unrelated values, and null fields are ignored. An `object` field containing an enumeration instance is included.
 - `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
-- `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.
+- `FromName(string)` and `TryFromName(string, out TEnumeration?)` share the same lookup and trim surrounding whitespace.
+- `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `InvalidOperationException` in each of these cases.
 - Names are compared with `StringComparer.Ordinal`.
-- Duplicate identifiers or names throw `InvalidOperationException` during cache creation.
+- Duplicate identifiers or names throw `InvalidOperationException` when the generated list is first accessed.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
+
+The generated list is initialized lazily and safely across threads, after the
+enumeration's static fields have been initialized. Identifiers and names may
+still be computed by field initializers: sorting and duplicate validation run
+once per closed enumeration type. All lookup methods search the same list with
+a linear scan. The generated methods pass the lazy list to the base class,
+which keeps name validation, lookup, and failure behavior in one place.
+Invalid name inputs are rejected before the list is evaluated. The base class
+has no separate cache or lookup dictionaries.
+Changing a static field after list initialization does not update the snapshot.
+Do not call lookup methods from enumeration field initializers.
+
+## Migrating from 2.x
+
+Version 3 changes the source and binary contracts of `Enumeration<TEnumeration>`
+and `ValueObject`. Both types move from `PANiXiDA.Core.Domain` to namespaces
+matching their folders. Update imports and fully qualified references, then
+rebuild consuming projects after updating the package:
+
+| Type | New namespace |
+| --- | --- |
+| `Enumeration<TEnumeration>` | `PANiXiDA.Core.Domain.Enumerations` |
+| `ValueObject` | `PANiXiDA.Core.Domain.ValueObjects` |
+
+Existing value objects with manual equality can retain their implementations.
+Add `partial` to opt into generation of missing methods as described above.
+
+Enumeration migration also requires the following changes:
+
+- Add `partial` to each concrete enumeration class and every containing type for nested declarations.
+- Calls such as `OrderStatus.FromId(2)` keep the same signatures, but the static API is now declared on each concrete enumeration type.
+- Calls through `Enumeration<TEnumeration>.GetAll()`, `FromId`, `FromName`, or their Try variants are no longer available. Generic consumers must receive the values or a delegate to the concrete type's generated method.
+- Generic constraints remain `where TEnumeration : Enumeration<TEnumeration>`.
+- File-local enumeration types and file-local containing types cannot be extended from generated files; remove `file`.
+- `PANENUM001` identifies a missing `partial`; `PANENUM002` identifies a file-local type.
+- `FromName` now follows `TryFromName`: it trims surrounding whitespace and rejects empty or whitespace names, instead of looking up the input exactly as supplied.
+- `FromName(null)` now throws `InvalidOperationException` instead of `ArgumentNullException`, consistently with other invalid names.
+
+For example, a generic consumer can accept the generated lookup method:
+
+```csharp
+using PANiXiDA.Core.Domain.Enumerations;
+
+public static class EnumerationLookup
+{
+    public static TEnumeration Get<TEnumeration>(int id, Func<int, TEnumeration> fromId)
+        where TEnumeration : Enumeration<TEnumeration>
+    {
+        ArgumentNullException.ThrowIfNull(fromId);
+        return fromId(id);
+    }
+}
+```
+
+```csharp
+OrderStatus submitted = EnumerationLookup.Get(2, OrderStatus.FromId);
+```
+
+The generator supplies all five static methods; do not declare methods with the
+same signatures in the concrete type. Equality and duplicate error behavior of
+generated enumerations are unchanged.
 
 ## Configuration
 
@@ -250,7 +367,12 @@ dotnet restore
 
 ### Format
 
+Build the source generator before formatting a clean checkout. The formatter
+loads its compiled analyzer to resolve generated enumeration and value object
+methods in the test project.
+
 ```bash
+dotnet build src/PANiXiDA.Core.Domain.Generators/PANiXiDA.Core.Domain.Generators.csproj --no-restore
 dotnet format
 ```
 
@@ -281,17 +403,39 @@ dotnet pack --configuration Release
 ### Continuous integration
 
 Every pull request and push to `main` runs formatting, tests, and mandatory
-SonarQube analysis. Publishing from `main` starts only after the SonarQube
-Quality Gate succeeds.
+SonarQube analysis. The shared format workflow uses `build-before-format: true`
+to build the solution and its source generator before checking formatting.
+The test workflow also requires 100% line and branch coverage;
+passing test cases alone does not satisfy this check. Publishing from `main`
+starts only after the SonarQube Quality Gate succeeds.
 
 ## Repository Layout
 
 ```text
 .
 |-- src/
+|   |-- PANiXiDA.Core.Domain.Generators/
+|   |   |-- Enumerations/
+|   |   |-- ValueObjects/
+|   |   |-- GenerationResult.cs
+|   |   `-- TypeSourceBuilder.cs
 |   `-- PANiXiDA.Core.Domain/
+|       |-- Abstractions/
+|       |-- AggregateRoots/
+|       |-- DomainEvents/
+|       |-- Entities/
+|       |-- Enumerations/
+|       |-- Identifiers/
+|       `-- ValueObjects/
 |-- tests/
 |   `-- PANiXiDA.Core.Domain.UnitTests/
+|       |-- Abstractions/
+|       |-- AggregateRoots/
+|       |-- DomainEvents/
+|       |-- Entities/
+|       |-- Enumerations/
+|       |-- Identifiers/
+|       `-- ValueObjects/
 |-- Directory.Build.props
 |-- Directory.Build.targets
 |-- Directory.Packages.props

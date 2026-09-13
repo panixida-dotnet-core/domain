@@ -1,6 +1,6 @@
 using PANiXiDA.Core.Domain.Identifiers;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.Identifiers;
 
 public sealed class StronglyTypedIdTests
 {
