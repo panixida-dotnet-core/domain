@@ -49,6 +49,102 @@ public sealed class EnumerationGeneratorTests
         }
     }
 
+    [Fact(DisplayName = "Generator recognizes Enumeration independently of its generic parameter name")]
+    public void Generate_WithRenamedBaseTypeParameter_EmitsCompilableLookups()
+    {
+        // Arrange
+        var compilation = CreateCompilation("""
+            using System;
+            using System.Collections.Generic;
+
+            namespace PANiXiDA.Core.Domain.Enumerations
+            {
+                public abstract class Enumeration<T>(int id, string name) where T : Enumeration<T>
+                {
+                    public int Id { get; } = id;
+                    public string Name { get; } = name;
+
+                    protected static T FromId(
+                        int id,
+                        Lazy<IReadOnlyList<T>> values) => throw new NotImplementedException();
+
+                    protected static T FromName(
+                        string name,
+                        Lazy<IReadOnlyList<T>> values) => throw new NotImplementedException();
+
+                    protected static bool TryFromId(
+                        int id,
+                        Lazy<IReadOnlyList<T>> values,
+                        out T? item) => throw new NotImplementedException();
+
+                    protected static bool TryFromName(
+                        string name,
+                        Lazy<IReadOnlyList<T>> values,
+                        out T? item) => throw new NotImplementedException();
+                }
+            }
+
+            namespace Example
+            {
+                public sealed partial class Status(int id, string name)
+                    : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
+                {
+                    public static readonly Status Active = new(1, "Active");
+                }
+            }
+            """).WithReferences(References.Where(reference => reference.Display != typeof(Enumeration<>).Assembly.Location));
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().ContainSingle();
+        AssertCompiles(output);
+        output.GetTypeByMetadataName("Example.Status")!.GetMembers("FromId").Should().ContainSingle();
+    }
+
+    [Fact(DisplayName = "Generator ignores a same-named enumeration from an extern-alias-only assembly")]
+    public void Generate_WithForeignEnumeration_DoesNotEmitSource()
+    {
+        // Arrange
+        var foreignCompilation = CreateCompilation("""
+            namespace PANiXiDA.Core.Domain.Enumerations;
+            public abstract class Enumeration<TEnumeration>;
+            """).WithAssemblyName("ForeignDomain");
+        using var stream = new MemoryStream();
+        foreignCompilation.Emit(stream, cancellationToken: TestContext.Current.CancellationToken).Success.Should().BeTrue();
+        var compilation = CreateCompilation("""
+            extern alias foreign;
+            public sealed partial class Status
+                : foreign::PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>;
+            """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()).WithAliases(["foreign"]));
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().BeEmpty();
+        AssertCompiles(output);
+    }
+
+    [Fact(DisplayName = "Generator handles compilations without Enumeration")]
+    public void Generate_WithoutEnumerationReference_DoesNotEmitSource()
+    {
+        // Arrange
+        var compilation = CreateCompilation("public class Unrelated : System.Exception;")
+            .WithReferences(References.Where(reference => reference.Display != typeof(Enumeration<>).Assembly.Location));
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().BeEmpty();
+        AssertCompiles(output);
+    }
+
     [Fact(DisplayName = "Generator combines partial declarations without duplicate output")]
     public void Generate_WithMultiplePartialDeclarations_EmitsOneCompleteProvider()
     {

@@ -13,7 +13,7 @@ namespace PANiXiDA.Core.Domain.Generators.Enumerations;
 [Generator(LanguageNames.CSharp)]
 public sealed class EnumerationGenerator : IIncrementalGenerator
 {
-    private const string EnumerationTypeName = "PANiXiDA.Core.Domain.Enumerations.Enumeration<TEnumeration>";
+    private const string EnumerationMetadataName = "PANiXiDA.Core.Domain.Enumerations.Enumeration`1";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANENUM001",
@@ -62,7 +62,8 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         var type = context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken)!;
-        if (!IsEnumeration(type))
+        var enumerationType = context.SemanticModel.Compilation.GetTypeByMetadataName(EnumerationMetadataName);
+        if (enumerationType is null || !IsEnumeration(type, enumerationType))
         {
             return null;
         }
@@ -96,11 +97,13 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
         return GenerationResult.Success(TypeSourceBuilder.GetHintName(type, "Enumeration"), source);
     }
 
-    private static bool IsEnumeration(INamedTypeSymbol type)
+    private static bool IsEnumeration(
+        INamedTypeSymbol type,
+        INamedTypeSymbol enumerationType)
     {
         for (var current = type.BaseType; current is not null; current = current.BaseType)
         {
-            if (current.OriginalDefinition.ToDisplayString() == EnumerationTypeName)
+            if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, enumerationType))
             {
                 return SymbolEqualityComparer.Default.Equals(current.TypeArguments[0], type);
             }

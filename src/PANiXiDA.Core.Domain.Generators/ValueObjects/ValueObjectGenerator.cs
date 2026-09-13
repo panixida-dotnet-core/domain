@@ -17,7 +17,7 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
     // Keep this identifier stable to recognize generated overrides in referenced assemblies.
     internal const string GeneratorName = "PANiXiDA.Core.Domain.Generators.ValueObjectGenerator";
     private const string ValueObjectName = "ValueObject";
-    private const string ValueObjectTypeName = "PANiXiDA.Core.Domain.ValueObjects.ValueObject";
+    private const string ValueObjectMetadataName = "PANiXiDA.Core.Domain.ValueObjects.ValueObject";
 
     private static readonly DiagnosticDescriptor PartialRequired = new(
         "PANVO001", "Value object generation requires partial types",
@@ -62,19 +62,30 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         });
     }
 
-    private static GenerationResult? CreateGeneration(GeneratorSyntaxContext context, CancellationToken cancellationToken)
+    private static GenerationResult? CreateGeneration(
+        GeneratorSyntaxContext context,
+        CancellationToken cancellationToken)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         var type = context.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken)!;
-        if (type.IsAbstract || !IsValueObject(type))
+        var compilation = context.SemanticModel.Compilation;
+        var valueObjectType = compilation.GetTypeByMetadataName(ValueObjectMetadataName);
+        if (type.IsAbstract || valueObjectType is null || !IsValueObject(type, valueObjectType))
         {
             return null;
         }
 
-        var compilation = context.SemanticModel.Compilation;
         var generatedCodeAttributes = compilation.GetTypesByMetadataName("System.CodeDom.Compiler.GeneratedCodeAttribute");
-        bool generateEquality = !HasMethod(type, "GetEqualityComponents", generatedCodeAttributes);
-        bool generateToString = !HasMethod(type, "ToString", generatedCodeAttributes);
+        bool generateEquality = !HasMethod(
+            type,
+            valueObjectType,
+            "GetEqualityComponents",
+            generatedCodeAttributes);
+        bool generateToString = !HasMethod(
+            type,
+            valueObjectType,
+            "ToString",
+            generatedCodeAttributes);
         if ((!generateEquality && !generateToString)
             || (!generateEquality && !declaration.Modifiers.Any(SyntaxKind.PartialKeyword)))
         {
@@ -99,6 +110,7 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         var properties = generateEquality
             ? GetProperties(
                 type,
+                valueObjectType,
                 compilation.GetTypesByMetadataName("System.Runtime.CompilerServices.CompilerGeneratedAttribute"),
                 cancellationToken)
             : [];
@@ -134,11 +146,13 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static bool IsValueObject(INamedTypeSymbol type)
+    private static bool IsValueObject(
+        INamedTypeSymbol type,
+        INamedTypeSymbol valueObjectType)
     {
         for (var current = type.BaseType; current is not null; current = current.BaseType)
         {
-            if (current.ToDisplayString() == ValueObjectTypeName)
+            if (SymbolEqualityComparer.Default.Equals(current, valueObjectType))
             {
                 return true;
             }
@@ -149,11 +163,14 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 
     private static bool HasMethod(
         INamedTypeSymbol type,
+        INamedTypeSymbol valueObjectType,
         string name,
         ImmutableArray<INamedTypeSymbol> generatedCodeAttributes)
     {
         // IsValueObject has already verified that this hierarchy reaches ValueObject.
-        for (var current = type; current.ToDisplayString() != ValueObjectTypeName; current = current.BaseType!)
+        for (var current = type;
+             !SymbolEqualityComparer.Default.Equals(current, valueObjectType);
+             current = current.BaseType!)
         {
             var method = current.GetMembers(name).OfType<IMethodSymbol>()
                 .FirstOrDefault(member => member.MethodKind == MethodKind.Ordinary
@@ -183,12 +200,15 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 
     private static List<IPropertySymbol> GetProperties(
         INamedTypeSymbol type,
+        INamedTypeSymbol valueObjectType,
         ImmutableArray<INamedTypeSymbol> compilerGeneratedAttributes,
         CancellationToken cancellationToken)
     {
         var hierarchy = new Stack<INamedTypeSymbol>();
         // IsValueObject has already verified that this hierarchy reaches ValueObject.
-        for (var current = type; current.ToDisplayString() != ValueObjectTypeName; current = current.BaseType!)
+        for (var current = type;
+             !SymbolEqualityComparer.Default.Equals(current, valueObjectType);
+             current = current.BaseType!)
         {
             hierarchy.Push(current);
         }

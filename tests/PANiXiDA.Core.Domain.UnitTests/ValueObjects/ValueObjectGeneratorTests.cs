@@ -17,6 +17,49 @@ public sealed class ValueObjectGeneratorTests
             .Select(path => MetadataReference.CreateFromFile(path))
     ];
 
+    [Fact(DisplayName = "Generator ignores a same-named value object from an extern-alias-only assembly")]
+    public void Generate_WithForeignValueObject_DoesNotEmitSource()
+    {
+        // Arrange
+        var foreignCompilation = CreateCompilation("""
+            namespace PANiXiDA.Core.Domain.ValueObjects;
+            public abstract class ValueObject;
+            """).WithAssemblyName("ForeignDomain");
+        using var stream = new MemoryStream();
+        foreignCompilation.Emit(stream, cancellationToken: TestContext.Current.CancellationToken).Success.Should().BeTrue();
+        var compilation = CreateCompilation("""
+            extern alias foreign;
+            public sealed partial class Value : foreign::PANiXiDA.Core.Domain.ValueObjects.ValueObject
+            {
+                public string Text { get; } = "test";
+            }
+            """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()).WithAliases(["foreign"]));
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().BeEmpty();
+        AssertCompiles(output);
+    }
+
+    [Fact(DisplayName = "Generator handles compilations without ValueObject")]
+    public void Generate_WithoutValueObjectReference_DoesNotEmitSource()
+    {
+        // Arrange
+        var compilation = CreateCompilation("public class Unrelated : System.Exception;")
+            .WithReferences(References.Where(reference => reference.Display != typeof(ValueObject).Assembly.Location));
+
+        // Act
+        var (result, output) = Generate(compilation);
+
+        // Assert
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().BeEmpty();
+        AssertCompiles(output);
+    }
+
     [Theory(DisplayName = "Generator preserves each manually declared method independently")]
     [InlineData(false, false)]
     [InlineData(true, false)]
