@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="2.0.0" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
 </ItemGroup>
 ```
 
@@ -41,17 +41,29 @@ dotnet add package PANiXiDA.Core.Domain
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
 - Deterministic lookup behavior for enumeration values by identifier or name.
+- Source-generated enumeration lookups, value object methods, and identifier string representations.
 
 ## Namespaces
 
 ```csharp
-using PANiXiDA.Core.Domain;
 using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Enumerations;
 using PANiXiDA.Core.Domain.Identifiers;
+using PANiXiDA.Core.Domain.ValueObjects;
 ```
+
+## Source Generation
+
+Source generators are included in the package. Reference it directly in each
+project declaring generated types. Declare the type and any containing types as
+`partial`; file-local types are not supported. Constructors, factories, and
+validation are written manually.
+
+With project references, also reference the generator project as an analyzer with
+`OutputItemType="Analyzer"` and `ReferenceOutputAssembly="false"`.
 
 ## Strongly Typed Identifier
 
@@ -60,7 +72,7 @@ Use `IStronglyTypedId` to distinguish domain identifiers from raw `Guid` values 
 ```csharp
 using PANiXiDA.Core.Domain.Identifiers;
 
-public readonly record struct CustomerId(Guid Value) : IStronglyTypedId
+public readonly partial record struct CustomerId(Guid Value) : IStronglyTypedId
 {
     public static CustomerId New()
     {
@@ -68,6 +80,9 @@ public readonly record struct CustomerId(Guid Value) : IStronglyTypedId
     }
 }
 ```
+
+For partial structs and record structs, the generator adds `ToString()` returning
+`Value.ToString()`. An explicitly written `ToString()` takes precedence.
 
 ## Entity
 
@@ -170,19 +185,13 @@ Read-only application concerns should depend on `IReadRepository<TId>` from `PAN
 Use `ValueObject` for immutable concepts where equality is based on values instead of identity.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.ValueObjects;
 
-public sealed class Money(decimal amount, string currency) : ValueObject
+public sealed partial class Money(decimal amount, string currency) : ValueObject
 {
     public decimal Amount { get; } = amount;
 
     public string Currency { get; } = currency;
-
-    protected override IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Amount;
-        yield return Currency;
-    }
 }
 ```
 
@@ -191,21 +200,45 @@ Money first = new(10m, "USD");
 Money second = new(10m, "USD");
 
 bool areEqual = first == second;
+string text = first.ToString();
 ```
+
+Here, `text` is `Money { Amount = 10, Currency = USD }`.
 
 Value object equality uses:
 
 - the same runtime type;
 - the ordered sequence returned by `GetEqualityComponents()`.
 
+For partial value objects, the generator supplies `GetEqualityComponents()` and
+`ToString()`. Components are public instance auto-properties with a public getter
+and either no setter or an `init` accessor, including inherited properties.
+Fields, indexers, mutable properties, and computed getters are excluded.
+
+Override either method to customize it independently; manual overrides, including
+inherited ones, take precedence. For example, generate equality with custom text:
+
+```csharp
+public sealed partial class Email(string value) : ValueObject
+{
+    public string Value { get; } = value;
+
+    public override string ToString() => Value;
+}
+```
+
+Generated `ToString()` prints component names and values using invariant formatting.
+With manual `GetEqualityComponents()`, labels are `[0]`, `[1]`, etc.
+If there are no eligible auto-properties, implement `GetEqualityComponents()` explicitly.
+
 ## Enumeration
 
 Use `Enumeration<TEnumeration>` for stable, named domain values that need behavior and lookup methods.
 
 ```csharp
-using PANiXiDA.Core.Domain;
+using PANiXiDA.Core.Domain.Enumerations;
 
-public sealed class OrderStatus : Enumeration<OrderStatus>
+public sealed partial class OrderStatus : Enumeration<OrderStatus>
 {
     public static readonly OrderStatus Draft = new(1, "Draft");
     public static readonly OrderStatus Submitted = new(2, "Submitted");
@@ -226,14 +259,20 @@ bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
 IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
+The generator adds `GetAll`, `FromId`, `FromName`, `TryFromId`, and `TryFromName`
+directly to the partial class. Declare values as public static readonly fields.
+Do not call lookup methods from static field initializers or declare methods with
+the same signatures as the generated methods.
+
 Enumeration behavior:
 
 - `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
 - `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
 - `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
-- `TryFromName(string, out TEnumeration?)` trims surrounding whitespace and returns `false` for empty or whitespace names.
+- `FromName(string)` and `TryFromName(string, out TEnumeration?)` share the same lookup and trim surrounding whitespace.
+- `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `InvalidOperationException` in each of these cases.
 - Names are compared with `StringComparer.Ordinal`.
-- Duplicate identifiers or names throw `InvalidOperationException` during cache creation.
+- Duplicate identifiers or names throw `InvalidOperationException` on first use.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
 
 ## Configuration
@@ -250,7 +289,10 @@ dotnet restore
 
 ### Format
 
+Build the source generator before formatting to resolve generated members.
+
 ```bash
+dotnet build src/PANiXiDA.Core.Domain.Generators/PANiXiDA.Core.Domain.Generators.csproj --no-restore
 dotnet format
 ```
 
@@ -289,6 +331,7 @@ Quality Gate succeeds.
 ```text
 .
 |-- src/
+|   |-- PANiXiDA.Core.Domain.Generators/
 |   `-- PANiXiDA.Core.Domain/
 |-- tests/
 |   `-- PANiXiDA.Core.Domain.UnitTests/

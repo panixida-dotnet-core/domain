@@ -2,7 +2,7 @@ using PANiXiDA.Core.Domain.Entities;
 
 using PANiXiDA.Core.Domain.Identifiers;
 
-namespace PANiXiDA.Core.Domain.UnitTests;
+namespace PANiXiDA.Core.Domain.UnitTests.Entities;
 
 public sealed class EntityTests
 {
