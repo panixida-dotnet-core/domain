@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 
 using PANiXiDA.Core.Domain.Enumerations;
 using PANiXiDA.Core.Domain.Generators.Enumerations;
@@ -367,6 +368,64 @@ public sealed class EnumerationGeneratorTests
         AssertCompiles(output);
         string source = driver.GetRunResult().Results.Single().GeneratedSources.Single().SourceText.ToString();
         source.Should().ContainAll(".@First", ".@Second");
+    }
+
+    [Theory(DisplayName = "Generator refreshes values after editing a secondary partial without a base list")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Generate_AfterEditingSecondaryPartial_UpdatesProvider(bool removeValue)
+    {
+        // Arrange
+        const string withoutValue = "public partial class Status { }";
+        const string withValue = """
+            public partial class Status
+            {
+                public static readonly Status Second = new(2, "Second");
+            }
+            """;
+        var compilation = CreateCompilation("""
+            public partial class Status(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>(id, name)
+            {
+                public static readonly Status First = new(1, "First");
+            }
+            """,
+            removeValue ? withValue : withoutValue);
+        GeneratorDriver driver = CreateDriver().RunGeneratorsAndUpdateCompilation(
+            compilation,
+            out var initialOutput,
+            out _,
+            TestContext.Current.CancellationToken);
+        AssertCompiles(initialOutput);
+        string initialSource = driver.GetRunResult().Results.Single().GeneratedSources.Single().SourceText.ToString();
+        var secondaryTree = compilation.SyntaxTrees.Last();
+        var editedTree = secondaryTree.WithChangedText(SourceText.From(removeValue ? withoutValue : withValue));
+        var updated = compilation.ReplaceSyntaxTree(secondaryTree, editedTree);
+
+        // Act
+        driver = driver.RunGeneratorsAndUpdateCompilation(
+            updated,
+            out var output,
+            out _,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        updated.SyntaxTrees.First().Should().BeSameAs(compilation.SyntaxTrees.First());
+        AssertCompiles(output);
+        var result = driver.GetRunResult();
+        result.Diagnostics.Should().BeEmpty();
+        string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
+        source.Should().NotBe(initialSource).And.Contain(".@First");
+        if (removeValue)
+        {
+            source.Should().NotContain(".@Second");
+        }
+        else
+        {
+            source.Should().Contain(".@Second");
+        }
+
+        var (freshResult, _) = Generate(updated);
+        source.Should().Be(freshResult.Results.Single().GeneratedSources.Single().SourceText.ToString());
     }
 
     [Fact(DisplayName = "Generator removes diagnostics after a declaration is made partial")]
