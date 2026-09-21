@@ -171,6 +171,7 @@ public sealed class ValueObjectGeneratorTests
     [InlineData("public partial class Value", "public int Number { set { } }", "PANVO003", "Value")]
     [InlineData("public partial class Value", "public int Number { get { return 1; } }", "PANVO003", "Value")]
     [InlineData("public partial class Value", "public int Number { get => 1; }", "PANVO003", "Value")]
+    [InlineData("public partial class Value", "public partial int Number { get; } public partial int Number => 1;", "PANVO003", "Value")]
     [InlineData("public partial class Value", "", "PANVO003", "Value")]
     public void Generate_WithUnsupportedDeclaration_ReportsDiagnostic(string declaration, string members, string id, string typeName)
     {
@@ -184,6 +185,33 @@ public sealed class ValueObjectGeneratorTests
         diagnostic.GetMessage().Should().Contain(typeName);
         diagnostic.Location.GetLineSpan().Path.Should().Be("Source0.cs");
         result.Results.Single().GeneratedSources.Should().BeEmpty();
+    }
+
+    [Theory(DisplayName = "Implemented partial properties with computed getters are excluded from generated equality and text")]
+    [InlineData("=> throw new System.InvalidOperationException();")]
+    [InlineData("{ get => throw new System.InvalidOperationException(); }")]
+    [InlineData("{ get { throw new System.InvalidOperationException(); } }")]
+    public void Generate_WithImplementedPartialProperty_ExcludesComputedGetter(string implementation)
+    {
+        var compilation = CreateCompilation("""
+            public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
+            {
+                public int Stored { get; } = 1;
+                public partial int Computed { get; }
+            }
+            """, $$"""
+            public sealed partial class Value
+            {
+                public partial int Computed {{implementation}}
+            }
+            """);
+
+        var (result, output) = Generate(compilation);
+
+        AssertCompiles(output);
+        result.Diagnostics.Should().BeEmpty();
+        string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
+        source.Should().Contain("yield return this.@Stored;").And.NotContain("Computed");
     }
 
     [Fact(DisplayName = "Existing non-partial value objects and abstract bases need no migration")]

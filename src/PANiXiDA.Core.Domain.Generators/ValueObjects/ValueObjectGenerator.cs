@@ -199,6 +199,8 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         ImmutableArray<INamedTypeSymbol> compilerGeneratedAttributes,
         CancellationToken cancellationToken)
     {
+        property = property.PartialImplementationPart ?? property;
+
         if (property.IsStatic || property.IsIndexer || property.IsAbstract
             || property.GetMethod?.DeclaredAccessibility != Accessibility.Public
             || (property.SetMethod is not null && !property.SetMethod.IsInitOnly))

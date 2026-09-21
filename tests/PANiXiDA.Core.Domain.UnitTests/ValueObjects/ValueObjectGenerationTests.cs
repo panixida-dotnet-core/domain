@@ -51,6 +51,7 @@ public sealed partial class ValueObjectGenerationTests
 
         equal.Should().BeTrue();
         (first == other).Should().BeFalse();
+        first.GetHashCode().Should().Be(second.GetHashCode());
         text.Should().Be("MixedValue { Value = same, Initial = 7 }");
     }
 
@@ -182,6 +183,27 @@ public sealed partial class ValueObjectGenerationTests
         public static string Static => throw new InvalidOperationException("Static getter must not be called.");
         public string Computed => throw new InvalidOperationException($"Computed getter must not be called for '{Value}'.");
         public string this[int index] => throw new InvalidOperationException("Indexer must not be called.");
+        public partial string PartialComputed { get; }
+        public partial string PartialAccessorExpression { get; }
+        public partial string PartialAccessorBlock { get; }
+    }
+
+    private sealed partial class MixedValue
+    {
+        public partial string PartialComputed => throw new InvalidOperationException($"Unexpected getter for '{Value}'.");
+
+        public partial string PartialAccessorExpression
+        {
+            get => throw new InvalidOperationException($"Unexpected getter for '{Value}'.");
+        }
+
+        public partial string PartialAccessorBlock
+        {
+            get
+            {
+                throw new InvalidOperationException($"Unexpected getter for '{Value}'.");
+            }
+        }
     }
 
     private sealed partial class ManualEquality(string value, int ignored) : ValueObject
