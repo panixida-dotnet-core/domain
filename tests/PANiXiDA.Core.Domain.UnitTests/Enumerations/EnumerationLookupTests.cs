@@ -7,10 +7,8 @@ public sealed partial class EnumerationLookupTests
     [Fact(DisplayName = "Indexed lookups preserve all declared instances for large and sparse identifiers")]
     public void Lookups_WithManySparseIdentifiers_ReturnDeclaredInstances()
     {
-        // Arrange
         var values = IndexedEnumeration.GetAll();
 
-        // Act and assert
         values.Should().HaveCount(16).And.BeInAscendingOrder(value => value.Id);
         values[0].Should().BeSameAs(IndexedEnumeration.Minimum);
         values[^1].Should().BeSameAs(IndexedEnumeration.Maximum);
@@ -33,12 +31,10 @@ public sealed partial class EnumerationLookupTests
     [Fact(DisplayName = "Name indexes distinguish names that differ only by case")]
     public void FromName_WithNamesDifferingByCase_ReturnsExactMatch()
     {
-        // Act
         var upper = IndexedEnumeration.FromName("Active");
         var lower = IndexedEnumeration.FromName("active");
         bool found = IndexedEnumeration.TryFromName("ACTIVE", out var missing);
 
-        // Assert
         upper.Should().BeSameAs(IndexedEnumeration.Active);
         lower.Should().BeSameAs(IndexedEnumeration.LowercaseActive);
         found.Should().BeFalse();
@@ -48,12 +44,10 @@ public sealed partial class EnumerationLookupTests
     [Fact(DisplayName = "Indexes and ordering use base enumeration properties when concrete properties hide them")]
     public void Lookups_WithHiddenProperties_UseBaseIdentifierAndName()
     {
-        // Act
         var values = HiddenPropertiesEnumeration.GetAll();
         var byId = HiddenPropertiesEnumeration.FromId(1);
         var byName = HiddenPropertiesEnumeration.FromName("First");
 
-        // Assert
         values.Should().Equal(HiddenPropertiesEnumeration.First, HiddenPropertiesEnumeration.Second);
         byId.Should().BeSameAs(HiddenPropertiesEnumeration.First);
         byName.Should().BeSameAs(HiddenPropertiesEnumeration.First);
@@ -64,10 +58,8 @@ public sealed partial class EnumerationLookupTests
     [Fact(DisplayName = "A null declared name preserves the key argument exception")]
     public void GetAll_WithNullDeclaredName_ThrowsArgumentNullException()
     {
-        // Act
         Action act = () => NullNameEnumeration.GetAll();
 
-        // Assert
         act.Should().Throw<ArgumentNullException>().WithParameterName("key");
     }
 

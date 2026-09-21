@@ -28,13 +28,10 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Generated enumeration lists cannot be modified through a collection interface")]
     public void GetAll_WhenMutatedThroughCollectionInterface_RejectsChanges()
     {
-        // Arrange
         var values = (IList<InitiallyUnusedEnumeration>)InitiallyUnusedEnumeration.GetAll();
 
-        // Act
         Action act = () => values[0] = InitiallyUnusedEnumeration.Second;
 
-        // Assert
         act.Should().Throw<NotSupportedException>();
         values[0].Should().BeSameAs(InitiallyUnusedEnumeration.First);
     }
@@ -42,10 +39,8 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Generated lists include values assigned by an explicit static constructor")]
     public void FromId_WithStaticConstructor_ReturnsInitializedValue()
     {
-        // Act
         var value = StaticConstructorEnumeration.FromId(7);
 
-        // Assert
         value.Should().BeSameAs(StaticConstructorEnumeration.Item);
         StaticConstructorEnumeration.GetAll().Should().ContainSingle();
     }
@@ -53,7 +48,6 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Concurrent first lookups return the same generated enumeration list")]
     public async Task GetAll_WithConcurrentFirstAccess_ReturnsSameList()
     {
-        // Arrange
         var tasks = Enumerable.Range(0, 16)
             .Select(index => Task.Run(() =>
             {
@@ -65,10 +59,8 @@ public sealed partial class EnumerationGenerationTests
             }, TestContext.Current.CancellationToken))
             .ToArray();
 
-        // Act
         var lists = await Task.WhenAll(tasks);
 
-        // Assert
         foreach (var list in lists)
         {
             list.Should().BeSameAs(lists[0]);
@@ -79,12 +71,10 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Empty generated enumerations return an empty list and no matching values")]
     public void Lookups_WithEmptyEnumeration_ReturnNoValues()
     {
-        // Act
         var values = EmptyEnumeration.GetAll();
         bool foundId = EmptyEnumeration.TryFromId(1, out var byId);
         bool foundName = EmptyEnumeration.TryFromName("Missing", out var byName);
 
-        // Assert
         values.Should().BeEmpty();
         foundId.Should().BeFalse();
         foundName.Should().BeFalse();
@@ -95,10 +85,8 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Lookup validates all generated values before returning an otherwise valid match")]
     public void FromId_WithDuplicateValues_ThrowsBeforeReturningMatch()
     {
-        // Act
         Action act = () => DuplicateEnumeration.FromId(1);
 
-        // Assert
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("Duplicate id '2' in DuplicateEnumeration");
     }
@@ -106,11 +94,9 @@ public sealed partial class EnumerationGenerationTests
     [Fact(DisplayName = "Null names follow the same failure behavior as other invalid names")]
     public void FromName_WithNullName_ThrowsWhenTryFromNameReturnsFalse()
     {
-        // Act
         Action act = () => InitiallyUnusedEnumeration.FromName(null!);
         bool found = InitiallyUnusedEnumeration.TryFromName(null!, out var value);
 
-        // Assert
         found.Should().BeFalse();
         value.Should().BeNull();
         act.Should().Throw<InvalidOperationException>()
@@ -123,11 +109,9 @@ public sealed partial class EnumerationGenerationTests
     [InlineData(" \t ")]
     public void FromName_WithInvalidInput_DoesNotValidateDuplicateValues(string? name)
     {
-        // Act
         bool found = DuplicateEnumeration.TryFromName(name!, out var value);
         Action act = () => DuplicateEnumeration.FromName(name!);
 
-        // Assert
         found.Should().BeFalse();
         value.Should().BeNull();
         act.Should().Throw<InvalidOperationException>()

@@ -53,7 +53,6 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generator recognizes Enumeration independently of its generic parameter name")]
     public void Generate_WithRenamedBaseTypeParameter_EmitsCompilableLookups()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             using System;
             using System.Collections.Generic;
@@ -100,10 +99,8 @@ public sealed class EnumerationGeneratorTests
             }
             """).WithReferences(References.Where(reference => reference.Display != typeof(Enumeration<>).Assembly.Location));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().ContainSingle();
         AssertCompiles(output);
@@ -113,7 +110,6 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generator ignores a same-named enumeration from an extern-alias-only assembly")]
     public void Generate_WithForeignEnumeration_DoesNotEmitSource()
     {
-        // Arrange
         var foreignCompilation = CreateCompilation("""
             namespace PANiXiDA.Core.Domain.Enumerations;
             public abstract class Enumeration<TEnumeration>;
@@ -126,10 +122,8 @@ public sealed class EnumerationGeneratorTests
                 : foreign::PANiXiDA.Core.Domain.Enumerations.Enumeration<Status>;
             """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()).WithAliases(["foreign"]));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
         AssertCompiles(output);
@@ -138,14 +132,11 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generator handles compilations without Enumeration")]
     public void Generate_WithoutEnumerationReference_DoesNotEmitSource()
     {
-        // Arrange
         var compilation = CreateCompilation("public class Unrelated : System.Exception;")
             .WithReferences(References.Where(reference => reference.Display != typeof(Enumeration<>).Assembly.Location));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
         AssertCompiles(output);
@@ -177,7 +168,6 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generator avoids collisions with existing list field names")]
     public void Generate_WithExistingValuesField_EmitsCompilableProvider()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<T>(id, name)
                 where T : Base<T>
@@ -191,10 +181,8 @@ public sealed class EnumerationGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         output.GetDiagnostics(TestContext.Current.CancellationToken)
             .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
             .Should().BeEmpty();
@@ -292,7 +280,6 @@ public sealed class EnumerationGeneratorTests
     [Fact(DisplayName = "Generated lookup methods support delegates and generic consumers without a provider constraint")]
     public void Generate_WithGenericConsumer_CompilesUsingOnlyEnumerationConstraint()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             using System;
             using System.Collections.Generic;
@@ -317,10 +304,8 @@ public sealed class EnumerationGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
     }
@@ -375,7 +360,6 @@ public sealed class EnumerationGeneratorTests
     [InlineData(true)]
     public void Generate_AfterEditingSecondaryPartial_UpdatesProvider(bool removeValue)
     {
-        // Arrange
         const string withoutValue = "public partial class Status { }";
         const string withValue = """
             public partial class Status
@@ -401,14 +385,12 @@ public sealed class EnumerationGeneratorTests
         var editedTree = secondaryTree.WithChangedText(SourceText.From(removeValue ? withoutValue : withValue));
         var updated = compilation.ReplaceSyntaxTree(secondaryTree, editedTree);
 
-        // Act
         driver = driver.RunGeneratorsAndUpdateCompilation(
             updated,
             out var output,
             out _,
             TestContext.Current.CancellationToken);
 
-        // Assert
         updated.SyntaxTrees.First().Should().BeSameAs(compilation.SyntaxTrees.First());
         AssertCompiles(output);
         var result = driver.GetRunResult();

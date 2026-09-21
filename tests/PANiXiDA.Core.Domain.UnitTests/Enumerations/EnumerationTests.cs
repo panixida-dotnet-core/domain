@@ -82,11 +82,9 @@ public sealed partial class EnumerationTests
     [InlineData("\tFirst\r\n")]
     public void FromName_WithValidName_ReturnsSameValueAsTryFromName(string name)
     {
-        // Act
         var value = TestEnumeration.FromName(name);
         bool found = TestEnumeration.TryFromName(name, out var triedValue);
 
-        // Assert
         found.Should().BeTrue();
         value.Should().BeSameAs(TestEnumeration.First).And.BeSameAs(triedValue);
     }
@@ -98,11 +96,9 @@ public sealed partial class EnumerationTests
     [InlineData("first")]
     public void FromName_WithInvalidName_ThrowsWhenTryFromNameReturnsFalse(string name)
     {
-        // Act
         Action act = () => TestEnumeration.FromName(name);
         bool found = TestEnumeration.TryFromName(name, out var triedValue);
 
-        // Assert
         found.Should().BeFalse();
         triedValue.Should().BeNull();
         act.Should().Throw<InvalidOperationException>()

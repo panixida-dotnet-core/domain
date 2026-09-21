@@ -9,16 +9,13 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated equality and string representation use the stored email value")]
     public void Email_WithEqualValues_HasEqualComponentsAndReadableText()
     {
-        // Arrange
         var first = new Email("user@example.test");
         var second = new Email("user@example.test");
         var other = new Email("other@example.test");
 
-        // Act
         bool equal = first == second;
         string text = first.ToString();
 
-        // Assert
         equal.Should().BeTrue();
         (first == other).Should().BeFalse();
         first.GetHashCode().Should().Be(second.GetHashCode());
@@ -28,16 +25,13 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated token equality and text include both value and expiration")]
     public void UserActionToken_WithDifferentComponents_ComparesEveryStoredProperty()
     {
-        // Arrange
         var expiration = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
         var token = new UserActionToken("sample-token", expiration);
 
-        // Act
         bool same = token == new UserActionToken("sample-token", expiration);
         bool differentValue = token == new UserActionToken("other-token", expiration);
         bool differentExpiration = token == new UserActionToken("sample-token", expiration.AddMinutes(1));
 
-        // Assert
         same.Should().BeTrue();
         differentValue.Should().BeFalse();
         differentExpiration.Should().BeFalse();
@@ -48,16 +42,13 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated methods ignore computed properties and mutable or static state")]
     public void Equality_WithUnrelatedMembers_UsesOnlyImmutableAutoProperties()
     {
-        // Arrange
         var first = new MixedValue("same") { Mutable = "first", Initial = 7 };
         var second = new MixedValue("same") { Mutable = "second", Initial = 7 };
         var other = new MixedValue("same") { Initial = 8 };
 
-        // Act
         bool equal = first == second;
         string text = first.ToString();
 
-        // Assert
         equal.Should().BeTrue();
         (first == other).Should().BeFalse();
         text.Should().Be("MixedValue { Value = same, Initial = 7 }");
@@ -66,15 +57,12 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Manual equality is preserved and automatic text uses its actual components")]
     public void ManualEquality_WithCustomComponents_RemainsInControlOfEqualityAndText()
     {
-        // Arrange
         var first = new ManualEquality("value", 1);
         var second = new ManualEquality("VALUE", 2);
 
-        // Act
         bool equal = first == second;
         string text = first.ToString();
 
-        // Assert
         equal.Should().BeTrue();
         first.GetHashCode().Should().Be(second.GetHashCode());
         text.Should().Be("ManualEquality { [0] = VALUE }");
@@ -83,14 +71,11 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Manual ToString is preserved while equality is generated")]
     public void ManualToString_WithGeneratedEquality_KeepsExplicitRepresentation()
     {
-        // Arrange
         var value = new ManualText("first");
 
-        // Act
         string text = value.ToString();
         bool equal = value == new ManualText("first");
 
-        // Assert
         text.Should().Be("custom text");
         equal.Should().BeTrue();
         (value == new ManualText("second")).Should().BeFalse();
@@ -99,13 +84,10 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Manual implementations of both methods are left unchanged")]
     public void ManualMethods_WhenBothAreDeclared_PreserveCustomBehavior()
     {
-        // Arrange
         var value = new ManualValue("value");
 
-        // Act
         bool equal = value == new ManualValue("VALUE");
 
-        // Assert
         equal.Should().BeTrue();
         value.ToString().Should().Be("manual value");
     }
@@ -113,13 +95,10 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated methods include stored properties inherited from an abstract value object")]
     public void InheritedProperties_WithGeneratedMethods_IncludeBaseAndDerivedState()
     {
-        // Arrange
         var value = new DerivedValue("first", 7);
 
-        // Act
         bool equal = value == new DerivedValue("first", 7);
 
-        // Assert
         equal.Should().BeTrue();
         (value == new DerivedValue("second", 7)).Should().BeFalse();
         (value == new DerivedValue("first", 8)).Should().BeFalse();
@@ -129,14 +108,11 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Inherited sealed overrides are not replaced by generated methods")]
     public void InheritedManualMethods_WithPartialDerivedType_PreserveBaseImplementations()
     {
-        // Arrange
         var first = new DerivedManualValue("value");
         var second = new DerivedManualValue("VALUE");
 
-        // Act
         bool equal = first == second;
 
-        // Assert
         equal.Should().BeTrue();
         first.ToString().Should().Be("inherited text");
     }
@@ -144,14 +120,11 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated text represents null components and generic value objects")]
     public void GenericValue_WithNullComponent_FormatsNullAndPreservesEquality()
     {
-        // Arrange
         var first = new GenericValue<string?>(null);
         var second = new GenericValue<string?>(null);
 
-        // Act
         bool equal = first == second;
 
-        // Assert
         equal.Should().BeTrue();
         first.GetHashCode().Should().Be(second.GetHashCode());
         first.ToString().Should().Be("GenericValue { Value = null }");
@@ -161,7 +134,6 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated text formats numeric components using invariant culture")]
     public void ToString_WithDifferentCurrentCulture_ProducesStableNumericText()
     {
-        // Arrange
         var originalCulture = CultureInfo.CurrentCulture;
         var value = new GenericValue<decimal>(12.5m);
 
@@ -169,10 +141,8 @@ public sealed partial class ValueObjectGenerationTests
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
 
-            // Act
             string text = value.ToString();
 
-            // Assert
             text.Should().Be("GenericValue { Value = 12.5 }");
         }
         finally
@@ -184,13 +154,10 @@ public sealed partial class ValueObjectGenerationTests
     [Fact(DisplayName = "Generated text supports an explicitly empty equality component sequence")]
     public void ToString_WithManualEmptyComponents_ReturnsEmptyRepresentation()
     {
-        // Arrange
         var value = new EmptyValue();
 
-        // Act
         string text = value.ToString();
 
-        // Assert
         text.Should().Be("EmptyValue { }");
     }
 

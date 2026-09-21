@@ -20,7 +20,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator ignores a same-named value object from an extern-alias-only assembly")]
     public void Generate_WithForeignValueObject_DoesNotEmitSource()
     {
-        // Arrange
         var foreignCompilation = CreateCompilation("""
             namespace PANiXiDA.Core.Domain.ValueObjects;
             public abstract class ValueObject;
@@ -35,10 +34,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()).WithAliases(["foreign"]));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
         AssertCompiles(output);
@@ -47,14 +44,11 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator handles compilations without ValueObject")]
     public void Generate_WithoutValueObjectReference_DoesNotEmitSource()
     {
-        // Arrange
         var compilation = CreateCompilation("public class Unrelated : System.Exception;")
             .WithReferences(References.Where(reference => reference.Display != typeof(ValueObject).Assembly.Location));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
         AssertCompiles(output);
@@ -67,7 +61,6 @@ public sealed class ValueObjectGeneratorTests
     [InlineData(true, true)]
     public void Generate_WithManualMethods_EmitsOnlyMissingOverrides(bool manualEquality, bool manualToString)
     {
-        // Arrange
         string equality = manualEquality
             ? "protected override System.Collections.Generic.IEnumerable<object?> GetEqualityComponents() => [Value];"
             : string.Empty;
@@ -81,10 +74,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         var sources = result.Results.Single().GeneratedSources;
@@ -111,7 +102,6 @@ public sealed class ValueObjectGeneratorTests
     [InlineData("partial interface")]
     public void Generate_WithNestedTypes_EmitsCompilableOverrides(string kind)
     {
-        // Arrange
         var compilation = CreateCompilation($$"""
             namespace @event;
             public {{kind}} Container<T> where T : class
@@ -123,10 +113,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
@@ -150,14 +138,11 @@ public sealed class ValueObjectGeneratorTests
     [InlineData("public partial class Value", "", "PANVO003", "Value")]
     public void Generate_WithUnsupportedDeclaration_ReportsDiagnostic(string declaration, string members, string id, string typeName)
     {
-        // Arrange
         string source = declaration + " : PANiXiDA.Core.Domain.ValueObjects.ValueObject { " + members + " }"
             + (typeName == "Container" ? " }" : string.Empty);
 
-        // Act
         var (result, _) = Generate(CreateCompilation(source));
 
-        // Assert
         var diagnostic = result.Diagnostics.Should().ContainSingle().Subject;
         diagnostic.Id.Should().Be(id);
         diagnostic.GetMessage().Should().Contain(typeName);
@@ -168,7 +153,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Existing non-partial value objects and abstract bases need no migration")]
     public void Generate_WithManualNonPartialAndUnrelatedTypes_DoesNotEmitSource()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public class Unrelated : System.Exception { }
             public abstract class AbstractValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject { }
@@ -178,10 +162,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
@@ -190,7 +172,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator combines partial declarations and ignores method overloads")]
     public void Generate_WithMultiplePartsAndOverloads_EmitsOneCompleteType()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -207,10 +188,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
@@ -223,7 +202,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator recognizes inherited auto-properties in referenced assemblies")]
     public void Generate_WithReferencedAbstractBase_IncludesStoredPropertiesOnly()
     {
-        // Arrange
         var baseCompilation = CreateCompilation("""
             public abstract class StoredValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -245,10 +223,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
@@ -259,7 +235,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generated overrides inherited from a referenced assembly can be extended with derived state")]
     public void Generate_WithReferencedGeneratedBase_IncludesBaseAndDerivedComponents()
     {
-        // Arrange
         var baseCompilation = CreateCompilation("""
             public partial class StoredValue : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -276,10 +251,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Single().SourceText.ToString();
@@ -296,7 +269,6 @@ public sealed class ValueObjectGeneratorTests
     [InlineData("[System.CodeDom.Compiler.GeneratedCode(null!, \"1.0\")]")]
     public void Generate_WithInheritedManualMethods_PreservesBaseImplementations(string attribute)
     {
-        // Arrange
         var compilation = CreateCompilation($$"""
             public class ManualBase : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -311,10 +283,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
@@ -323,7 +293,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Inherited abstract overrides are implemented by the generator")]
     public void Generate_WithInheritedAbstractMethods_ImplementsBothOverrides()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public abstract class AbstractBase : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -336,10 +305,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
@@ -349,7 +316,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator ignores unimplemented abstract properties while a type is being edited")]
     public void Generate_WithUnimplementedAbstractProperty_UsesOnlyStoredProperties()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public abstract class AbstractBase : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -361,10 +327,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
         source.Should().Contain("yield return this.@Number;").And.NotContain("this.@Pending");
@@ -382,7 +346,6 @@ public sealed class ValueObjectGeneratorTests
         string attribute,
         string diagnosticId)
     {
-        // Arrange
         var compilation = CreateCompilation($$"""
             public class ManualBase : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -393,10 +356,8 @@ public sealed class ValueObjectGeneratorTests
             public sealed partial class DerivedValue : ManualBase;
             """);
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         result.Diagnostics.Should().BeEmpty();
         result.Results.Single().GeneratedSources.Should().BeEmpty();
         output.GetDiagnostics(TestContext.Current.CancellationToken)
@@ -407,7 +368,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Missing metadata attribute dependencies do not change inherited methods or property selection")]
     public void Generate_WithUnavailableAttributeAssembly_PreservesManualMethodsAndStoredProperties()
     {
-        // Arrange
         var attributeCompilation = CreateCompilation("""
             public sealed class MarkerAttribute : System.Attribute;
             """).WithAssemblyName("OptionalAttributes");
@@ -443,10 +403,8 @@ public sealed class ValueObjectGeneratorTests
             }
             """).AddReferences(MetadataReference.CreateFromImage(baseStream.ToArray()));
 
-        // Act
         var (result, output) = Generate(compilation);
 
-        // Assert
         AssertCompiles(output);
         result.Diagnostics.Should().BeEmpty();
         string source = result.Results.Single().GeneratedSources.Should().ContainSingle().Subject.SourceText.ToString();
@@ -457,7 +415,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Adding a stored property updates generated equality and component names")]
     public void Generate_AfterPropertyIsAdded_UpdatesBothMethods()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -472,11 +429,9 @@ public sealed class ValueObjectGeneratorTests
             }
             """, ParseOptions, "Source1.cs", cancellationToken: TestContext.Current.CancellationToken);
 
-        // Act
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation.AddSyntaxTrees(added), out var output, out _,
             TestContext.Current.CancellationToken);
 
-        // Assert
         AssertCompiles(output);
         var result = driver.GetRunResult();
         result.Diagnostics.Should().BeEmpty();
@@ -492,7 +447,6 @@ public sealed class ValueObjectGeneratorTests
     [InlineData("public override string ToString() => \"manual\";", "public override string ToString()")]
     public void Generate_AfterManualOverrideIsAdded_RemovesConflictingGeneratedMethod(string method, string generatedSignature)
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -503,11 +457,9 @@ public sealed class ValueObjectGeneratorTests
         var added = CSharpSyntaxTree.ParseText("public sealed partial class Value { " + method + " }", ParseOptions,
             "Manual.cs", cancellationToken: TestContext.Current.CancellationToken);
 
-        // Act
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation.AddSyntaxTrees(added), out var output, out _,
             TestContext.Current.CancellationToken);
 
-        // Assert
         AssertCompiles(output);
         var result = driver.GetRunResult();
         result.Diagnostics.Should().BeEmpty();
@@ -517,7 +469,6 @@ public sealed class ValueObjectGeneratorTests
     [Fact(DisplayName = "Generator reuses unchanged output after unrelated source edits")]
     public void Generate_AfterUnrelatedEdit_ReusesGeneratedOutput()
     {
-        // Arrange
         var compilation = CreateCompilation("""
             public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
             {
@@ -528,10 +479,8 @@ public sealed class ValueObjectGeneratorTests
         var added = CSharpSyntaxTree.ParseText("class Unrelated { }", ParseOptions,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        // Act
         driver = driver.RunGenerators(compilation.AddSyntaxTrees(added), TestContext.Current.CancellationToken);
 
-        // Assert
         var outputs = driver.GetRunResult().Results.Single().TrackedOutputSteps.Values
             .SelectMany(steps => steps).SelectMany(step => step.Outputs);
         outputs.Should().NotBeEmpty().And.OnlyContain(output => output.Reason == IncrementalStepRunReason.Cached);
