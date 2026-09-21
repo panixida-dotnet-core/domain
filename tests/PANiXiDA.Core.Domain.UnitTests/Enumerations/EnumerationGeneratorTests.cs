@@ -47,45 +47,23 @@ public sealed class EnumerationGeneratorTests
             var method = status.GetMembers(methodName).OfType<IMethodSymbol>().Should().ContainSingle().Subject;
             method.IsStatic.Should().BeTrue();
             method.DeclaredAccessibility.Should().Be(Accessibility.Public);
+            status.BaseType!.GetMembers(methodName).Should().BeEmpty();
         }
+
+        status.GetTypeMembers().Should().ContainSingle().Which.DeclaredAccessibility.Should().Be(Accessibility.Private);
+        status.BaseType!.GetTypeMembers().Should().BeEmpty();
     }
 
     [Fact(DisplayName = "Generator recognizes Enumeration independently of its generic parameter name")]
     public void Generate_WithRenamedBaseTypeParameter_EmitsCompilableLookups()
     {
         var compilation = CreateCompilation("""
-            using System;
-            using System.Collections.Generic;
-
             namespace PANiXiDA.Core.Domain.Enumerations
             {
                 public abstract class Enumeration<T>(int id, string name) where T : Enumeration<T>
                 {
                     public int Id { get; } = id;
                     public string Name { get; } = name;
-
-                    protected static T FromId(
-                        int id,
-                        Lazy<EnumerationValues> values) => throw new NotImplementedException();
-
-                    protected static T FromName(
-                        string name,
-                        Lazy<EnumerationValues> values) => throw new NotImplementedException();
-
-                    protected static bool TryFromId(
-                        int id,
-                        Lazy<EnumerationValues> values,
-                        out T? item) => throw new NotImplementedException();
-
-                    protected static bool TryFromName(
-                        string name,
-                        Lazy<EnumerationValues> values,
-                        out T? item) => throw new NotImplementedException();
-
-                    protected sealed class EnumerationValues(List<T> items)
-                    {
-                        public IReadOnlyList<T> All { get; } = items.AsReadOnly();
-                    }
                 }
             }
 
@@ -165,19 +143,48 @@ public sealed class EnumerationGeneratorTests
         source.Should().ContainAll(".@First", ".@Second");
     }
 
-    [Fact(DisplayName = "Generator avoids collisions with existing list field names")]
-    public void Generate_WithExistingValuesField_EmitsCompilableProvider()
+    [Fact(DisplayName = "Generator avoids collisions with existing storage names")]
+    public void Generate_WithExistingStorageNames_EmitsCompilableProvider()
     {
         var compilation = CreateCompilation("""
             public abstract class Base<T>(int id, string name) : PANiXiDA.Core.Domain.Enumerations.Enumeration<T>(id, name)
                 where T : Base<T>
             {
                 protected const int __enumerationValues = 1;
+                protected const int EnumerationValues = 2;
             }
-            public sealed partial class Status<__enumerationValues__>(int id, string name)
-                : Base<Status<__enumerationValues__>>(id, name)
+            public sealed partial class Status<__enumerationValues__, EnumerationValues__>(int id, string name)
+                : Base<Status<__enumerationValues__, EnumerationValues__>>(id, name)
             {
-                public static readonly Status<__enumerationValues__> __enumerationValues_ = new(1, "First");
+                public static readonly Status<__enumerationValues__, EnumerationValues__> __enumerationValues_ = new(1, "First");
+                public static readonly Status<__enumerationValues__, EnumerationValues__> EnumerationValues_ = new(2, "Second");
+            }
+            """);
+
+        var (result, output) = Generate(compilation);
+
+        output.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
+            .Should().BeEmpty();
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().ContainSingle();
+    }
+
+    [Theory(DisplayName = "Generated storage does not shadow enumeration or containing generic type names")]
+    [InlineData("EnumerationValues", "T")]
+    [InlineData("Status", "EnumerationValues")]
+    public void Generate_WithStorageTypeNameCollision_EmitsCompilableProvider(
+        string typeName,
+        string typeParameter)
+    {
+        var compilation = CreateCompilation($$"""
+            public partial class Container<{{typeParameter}}>
+            {
+                public sealed partial class {{typeName}}(int id, string name)
+                    : PANiXiDA.Core.Domain.Enumerations.Enumeration<{{typeName}}>(id, name)
+                {
+                    public static readonly {{typeName}} First = new(1, "First");
+                }
             }
             """);
 

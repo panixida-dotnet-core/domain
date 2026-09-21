@@ -273,8 +273,10 @@ The package includes a C# incremental source generator. It adds `GetAll`,
 `FromId`, `FromName`, `TryFromId`, and `TryFromName` directly to the partial class
 and supplies direct references to its public static fields to one immutable snapshot.
 The snapshot contains an ordered list and `FrozenDictionary` indexes by identifier
-and name. The generated lookup methods delegate to shared protected methods in
-`Enumeration<TEnumeration>`; no additional interface or generic constraint is required.
+and name. Lookup methods, validation, and the private snapshot type are generated
+inside each concrete enumeration. `Enumeration<TEnumeration>` contains only value
+properties, equality, comparison, and string representation; no additional interface
+or generic constraint is required.
 No reflection, assembly scanning, runtime registration,
 or `DynamicallyAccessedMembers` annotation is needed to discover these values.
 Reference the package directly in each project that declares enumeration types.
@@ -298,9 +300,8 @@ enumeration's static fields have been initialized. Identifiers and names may
 still be computed by field initializers: duplicate validation, sorting, and index
 construction run once per closed enumeration type. Temporary dictionaries reject
 duplicate keys before being converted to frozen indexes. `GetAll` keeps the ordered
-list; the lookup methods use the frozen indexes. The generated methods pass the
-same lazy snapshot to the base class, which keeps name validation, lookup, and
-failure behavior in one place. Invalid name inputs are rejected before the
+list; the generated lookup methods use the frozen indexes directly. All generated
+methods share one private lazy snapshot. Invalid name inputs are rejected before the
 snapshot is evaluated. Indexes are constructed at runtime on first use; code
 generation supplies the values without reflection.
 Changing a static field after initialization does not update the list or indexes.
