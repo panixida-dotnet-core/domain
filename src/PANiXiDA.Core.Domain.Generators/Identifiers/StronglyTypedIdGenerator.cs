@@ -1,9 +1,6 @@
-using System.Text;
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace PANiXiDA.Core.Domain.Generators.Identifiers;
 
@@ -44,15 +41,8 @@ public sealed class StronglyTypedIdGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(identifiers, static (productionContext, generation) =>
         {
-            if (generation.ErrorType is not null)
-            {
-                var descriptor = generation.DiagnosticId == FileLocalUnsupported.Id ? FileLocalUnsupported : PartialRequired;
-                var location = Location.Create(generation.Path, generation.Span, generation.LineSpan);
-                productionContext.ReportDiagnostic(Diagnostic.Create(descriptor, location, generation.ErrorType));
-                return;
-            }
-
-            productionContext.AddSource(generation.HintName, SourceText.From(generation.Source, Encoding.UTF8));
+            var descriptor = generation.DiagnosticId == FileLocalUnsupported.Id ? FileLocalUnsupported : PartialRequired;
+            generation.Emit(productionContext, descriptor);
         });
     }
 
@@ -79,7 +69,11 @@ public sealed class StronglyTypedIdGenerator : IIncrementalGenerator
             return null;
         }
 
-        var declarationError = ValidateDeclarations(type, cancellationToken);
+        var declarationError = TypeDeclarationValidator.Validate(
+            type,
+            PartialRequired,
+            FileLocalUnsupported,
+            cancellationToken);
         if (declarationError.HasValue)
         {
             return declarationError;
@@ -98,28 +92,5 @@ public sealed class StronglyTypedIdGenerator : IIncrementalGenerator
         return type.GetMembers("ToString").OfType<IMethodSymbol>().Any(method =>
             !method.IsImplicitlyDeclared && method.MethodKind == MethodKind.Ordinary
             && method.Arity == 0 && method.Parameters.IsEmpty);
-    }
-
-    private static GenerationResult? ValidateDeclarations(
-        INamedTypeSymbol type,
-        CancellationToken cancellationToken)
-    {
-        for (var current = type; current is not null; current = current.ContainingType)
-        {
-            foreach (var reference in current.DeclaringSyntaxReferences)
-            {
-                var syntax = (TypeDeclarationSyntax)reference.GetSyntax(cancellationToken);
-                bool isFileLocal = syntax.Modifiers.Any(SyntaxKind.FileKeyword);
-                if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
-                {
-                    return GenerationResult.Error(
-                        current.Name,
-                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id,
-                        syntax.Identifier.GetLocation());
-                }
-            }
-        }
-
-        return null;
     }
 }

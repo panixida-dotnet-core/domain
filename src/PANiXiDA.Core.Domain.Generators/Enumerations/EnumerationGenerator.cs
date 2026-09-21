@@ -1,9 +1,6 @@
-using System.Text;
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace PANiXiDA.Core.Domain.Generators.Enumerations;
 
@@ -44,15 +41,8 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(enumerations, static (productionContext, generation) =>
         {
-            if (generation.ErrorType is not null)
-            {
-                var descriptor = generation.DiagnosticId == FileLocalUnsupported.Id ? FileLocalUnsupported : PartialRequired;
-                var location = Location.Create(generation.Path, generation.Span, generation.LineSpan);
-                productionContext.ReportDiagnostic(Diagnostic.Create(descriptor, location, generation.ErrorType));
-                return;
-            }
-
-            productionContext.AddSource(generation.HintName, SourceText.From(generation.Source, Encoding.UTF8));
+            var descriptor = generation.DiagnosticId == FileLocalUnsupported.Id ? FileLocalUnsupported : PartialRequired;
+            generation.Emit(productionContext, descriptor);
         });
     }
 
@@ -78,19 +68,14 @@ public sealed class EnumerationGenerator : IIncrementalGenerator
             return null;
         }
 
-        for (var current = type; current is not null; current = current.ContainingType)
+        var declarationError = TypeDeclarationValidator.Validate(
+            type,
+            PartialRequired,
+            FileLocalUnsupported,
+            cancellationToken);
+        if (declarationError.HasValue)
         {
-            foreach (var reference in current.DeclaringSyntaxReferences)
-            {
-                var syntax = (TypeDeclarationSyntax)reference.GetSyntax(cancellationToken);
-                bool isFileLocal = syntax.Modifiers.Any(SyntaxKind.FileKeyword);
-                if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
-                {
-                    var location = syntax.Identifier.GetLocation();
-                    return GenerationResult.Error(current.Name,
-                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id, location);
-                }
-            }
+            return declarationError;
         }
 
         string source = EnumerationSourceBuilder.Build(type);

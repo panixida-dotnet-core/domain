@@ -1,10 +1,8 @@
 using System.Collections.Immutable;
-using System.Text;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace PANiXiDA.Core.Domain.Generators.ValueObjects;
 
@@ -45,20 +43,13 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(valueObjects, static (productionContext, generation) =>
         {
-            if (generation.ErrorType is not null)
+            var descriptor = generation.DiagnosticId switch
             {
-                var descriptor = generation.DiagnosticId switch
-                {
-                    "PANVO002" => FileLocalUnsupported,
-                    "PANVO003" => ComponentsRequired,
-                    _ => PartialRequired
-                };
-                var location = Location.Create(generation.Path, generation.Span, generation.LineSpan);
-                productionContext.ReportDiagnostic(Diagnostic.Create(descriptor, location, generation.ErrorType));
-                return;
-            }
-
-            productionContext.AddSource(generation.HintName, SourceText.From(generation.Source, Encoding.UTF8));
+                "PANVO002" => FileLocalUnsupported,
+                "PANVO003" => ComponentsRequired,
+                _ => PartialRequired
+            };
+            generation.Emit(productionContext, descriptor);
         });
     }
 
@@ -101,7 +92,11 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
             return null;
         }
 
-        var declarationError = ValidateDeclarations(type, cancellationToken);
+        var declarationError = TypeDeclarationValidator.Validate(
+            type,
+            PartialRequired,
+            FileLocalUnsupported,
+            cancellationToken);
         if (declarationError.HasValue)
         {
             return declarationError;
@@ -121,29 +116,6 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
 
         string source = ValueObjectSourceBuilder.Build(type, properties, generateEquality, generateToString);
         return GenerationResult.Success(TypeSourceBuilder.GetHintName(type, ValueObjectName), source);
-    }
-
-    private static GenerationResult? ValidateDeclarations(
-        INamedTypeSymbol type,
-        CancellationToken cancellationToken)
-    {
-        for (var current = type; current is not null; current = current.ContainingType)
-        {
-            foreach (var reference in current.DeclaringSyntaxReferences)
-            {
-                var syntax = (TypeDeclarationSyntax)reference.GetSyntax(cancellationToken);
-                bool isFileLocal = syntax.Modifiers.Any(SyntaxKind.FileKeyword);
-                if (isFileLocal || !syntax.Modifiers.Any(SyntaxKind.PartialKeyword))
-                {
-                    return GenerationResult.Error(
-                        current.Name,
-                        isFileLocal ? FileLocalUnsupported.Id : PartialRequired.Id,
-                        syntax.Identifier.GetLocation());
-                }
-            }
-        }
-
-        return null;
     }
 
     private static bool IsValueObject(

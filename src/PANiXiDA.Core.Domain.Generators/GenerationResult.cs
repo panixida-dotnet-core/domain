@@ -1,3 +1,5 @@
+using System.Text;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
@@ -59,5 +61,19 @@ internal readonly record struct GenerationResult
             lineSpan.Path,
             location.SourceSpan,
             lineSpan.Span);
+    }
+
+    public void Emit(
+        SourceProductionContext context,
+        DiagnosticDescriptor descriptor)
+    {
+        if (ErrorType is not null)
+        {
+            var location = Location.Create(Path, Span, LineSpan);
+            context.ReportDiagnostic(Diagnostic.Create(descriptor, location, ErrorType));
+            return;
+        }
+
+        context.AddSource(HintName, SourceText.From(Source, Encoding.UTF8));
     }
 }
