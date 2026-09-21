@@ -35,7 +35,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 - Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
 - `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
-- `IStronglyTypedId` contract for domain identifiers backed by `Guid` values.
+- `IStronglyTypedId` contract for domain identifiers backed by `Guid` values, with generated string representations for partial structs.
 - `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
 - `ValueObject` base class with component-based equality.
@@ -62,7 +62,7 @@ Use `IStronglyTypedId` to distinguish domain identifiers from raw `Guid` values 
 ```csharp
 using PANiXiDA.Core.Domain.Identifiers;
 
-public readonly record struct CustomerId(Guid Value) : IStronglyTypedId
+public readonly partial record struct CustomerId(Guid Value) : IStronglyTypedId
 {
     public static CustomerId New()
     {
@@ -70,6 +70,22 @@ public readonly record struct CustomerId(Guid Value) : IStronglyTypedId
     }
 }
 ```
+
+For a partial `struct` or `record struct` implementing `IStronglyTypedId`, the
+generator adds `public override string ToString()` that returns the underlying
+`Guid` text, just like `Value.ToString()`. A record identifier therefore prints
+the Guid itself instead of `CustomerId { Value = ... }`. Explicit interface
+implementations and contracts derived from `IStronglyTypedId` are supported.
+
+An explicitly written parameterless `ToString()` is preserved. Types without
+`partial` keep their existing behavior, so adding `partial` opts into generation.
+For nested identifiers, containing types must also be partial. Constructors,
+factories, validation, equality, and hashing remain unchanged.
+
+`PANID001` reports a missing `partial` in a declaration required for generation;
+`PANID002` reports a file-local identifier or containing type. The generator is
+included in the package; source-level project references must also reference
+the generator project as an analyzer, as described below for enumerations.
 
 ## Entity
 

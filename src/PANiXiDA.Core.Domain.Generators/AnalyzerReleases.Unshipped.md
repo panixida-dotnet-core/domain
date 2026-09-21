@@ -9,3 +9,5 @@ PANENUM002 | Enumeration | Error | Enumeration and containing types cannot be fi
 PANVO001 | ValueObject | Error | Generated value objects and containing types must be partial.
 PANVO002 | ValueObject | Error | Generated value objects and containing types cannot be file-local.
 PANVO003 | ValueObject | Error | Automatic equality requires public read-only or init-only auto-properties.
+PANID001 | StronglyTypedId | Error | Generated identifier structs and containing types must be partial.
+PANID002 | StronglyTypedId | Error | Generated identifier structs and containing types cannot be file-local.
