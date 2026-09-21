@@ -38,13 +38,38 @@ internal static class ValueObjectSourceBuilder
             builder.Append(indent).AppendLine("/// <inheritdoc />");
             builder.Append(indent).Append("[global::System.CodeDom.Compiler.GeneratedCode(")
                 .Append(SymbolDisplay.FormatLiteral(ValueObjectGenerator.GeneratorName, quote: true)).AppendLine(", \"1.0\")]");
-            builder.Append(indent).AppendLine("public override string ToString()");
-            builder.Append(indent).AppendLine("{");
-            builder.Append(indent).Append("    return base.FormatEqualityComponents(")
-                .Append(SymbolDisplay.FormatLiteral(type.Name, quote: true)).Append(", [")
-                .Append(string.Join(", ", properties.Select(property => SymbolDisplay.FormatLiteral(property.Name, quote: true))))
-                .AppendLine("]);");
-            builder.Append(indent).AppendLine("}");
+            string componentNames = string.Join(", ", properties.Select(property => SymbolDisplay.FormatLiteral(property.Name, quote: true)));
+            string source = $$"""
+                public override string ToString()
+                {
+                    global::System.ReadOnlySpan<string> componentNames = [{{componentNames}}];
+                    var builder = new global::System.Text.StringBuilder({{SymbolDisplay.FormatLiteral(type.Name, quote: true)}}).Append(" {");
+                    int index = 0;
+                    foreach (var component in this.GetEqualityComponents())
+                    {
+                        builder.Append(index == 0 ? " " : ", ");
+                        if (index < componentNames.Length)
+                        {
+                            builder.Append(componentNames[index]);
+                        }
+                        else
+                        {
+                            builder.Append('[').Append(index.ToString(global::System.Globalization.CultureInfo.InvariantCulture)).Append(']');
+                        }
+
+                        builder.Append(" = ").Append(component is null
+                            ? "null"
+                            : global::System.Convert.ToString(component, global::System.Globalization.CultureInfo.InvariantCulture));
+                        index++;
+                    }
+
+                    return builder.Append(" }").ToString();
+                }
+                """;
+            foreach (string line in source.Replace("\r\n", "\n").Split('\n'))
+            {
+                builder.Append(indent).AppendLine(line);
+            }
         }
 
         return TypeSourceBuilder.Complete(builder, depth);

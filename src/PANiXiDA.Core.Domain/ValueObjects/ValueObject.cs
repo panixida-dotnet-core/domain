@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-using System.Text;
-
-namespace PANiXiDA.Core.Domain.ValueObjects;
+﻿namespace PANiXiDA.Core.Domain.ValueObjects;
 
 /// <summary>
 /// Represents a value object whose equality is based on component values.
@@ -89,33 +86,4 @@ public abstract class ValueObject : IEquatable<ValueObject>
     /// </summary>
     /// <returns>The ordered sequence of equality components.</returns>
     protected abstract IEnumerable<object?> GetEqualityComponents();
-
-    /// <summary>
-    /// Formats the equality components using invariant culture and the supplied component names.
-    /// </summary>
-    /// <param name="typeName">The value object type name supplied by generated code.</param>
-    /// <param name="componentNames">The component names, or an empty span to label components by index.</param>
-    /// <returns>The type name followed by the names and values of its equality components.</returns>
-    protected string FormatEqualityComponents(string typeName, ReadOnlySpan<string> componentNames)
-    {
-        var builder = new StringBuilder(typeName).Append(" {");
-        int index = 0;
-        foreach (var component in GetEqualityComponents())
-        {
-            builder.Append(index == 0 ? " " : ", ");
-            if (index < componentNames.Length)
-            {
-                builder.Append(componentNames[index]);
-            }
-            else
-            {
-                builder.Append('[').Append(index.ToString(CultureInfo.InvariantCulture)).Append(']');
-            }
-
-            builder.Append(" = ").Append(component is null ? "null" : Convert.ToString(component, CultureInfo.InvariantCulture));
-            index++;
-        }
-
-        return builder.Append(" }").ToString();
-    }
 }

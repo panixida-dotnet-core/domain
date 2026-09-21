@@ -223,7 +223,9 @@ public sealed partial class Email(string value) : ValueObject
 
 Generated `ToString()` prints `TypeName { Property = value, ... }` using the actual
 equality components, invariant numeric/date formatting, and `null` for a null
-component. If `GetEqualityComponents()` is implemented manually, its values have
+component. Formatting is generated entirely inside the concrete type's `ToString()`;
+the base `ValueObject` only defines equality, hashing, and the equality component contract.
+If `GetEqualityComponents()` is implemented manually, its values have
 no property names; automatic text uses `[0]`, `[1]`, and so on instead. Empty
 manual component sequences produce `TypeName { }`. Both methods can be written
 manually to keep full control over comparison and display.

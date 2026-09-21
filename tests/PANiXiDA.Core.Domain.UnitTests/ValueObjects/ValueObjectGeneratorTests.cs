@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using PANiXiDA.Core.Domain.Generators.ValueObjects;
 using PANiXiDA.Core.Domain.ValueObjects;
@@ -54,6 +55,38 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
     }
 
+    [Theory(DisplayName = "Generated text requires only equality components from the base value object")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Generate_WithoutBaseFormattingHelper_EmitsCompilableOverrides(bool manualEquality)
+    {
+        string equality = manualEquality
+            ? "protected override System.Collections.Generic.IEnumerable<object?> GetEqualityComponents() => [Value.Trim()];"
+            : string.Empty;
+        var compilation = CreateCompilation($$"""
+            namespace PANiXiDA.Core.Domain.ValueObjects
+            {
+                public abstract class ValueObject
+                {
+                    protected abstract System.Collections.Generic.IEnumerable<object?> GetEqualityComponents();
+                }
+            }
+
+            public sealed partial class Email(string value) : PANiXiDA.Core.Domain.ValueObjects.ValueObject
+            {
+                public string Value { get; } = value;
+                {{equality}}
+            }
+            """).WithReferences(References.Where(reference => reference.Display != typeof(ValueObject).Assembly.Location));
+
+        var (result, output) = Generate(compilation);
+
+        AssertCompiles(output);
+        result.Diagnostics.Should().BeEmpty();
+        result.Results.Single().GeneratedSources.Should().ContainSingle();
+        output.GetTypeByMetadataName("Email")!.GetMembers("ToString").Should().ContainSingle();
+    }
+
     [Theory(DisplayName = "Generator preserves each manually declared method independently")]
     [InlineData(false, false)]
     [InlineData(true, false)]
@@ -85,9 +118,12 @@ public sealed class ValueObjectGeneratorTests
             return;
         }
 
-        string source = sources.Should().ContainSingle().Subject.SourceText.ToString();
-        source.Contains("GetEqualityComponents()", StringComparison.Ordinal).Should().Be(!manualEquality);
-        source.Contains("public override string ToString()", StringComparison.Ordinal).Should().Be(!manualToString);
+        var generated = sources.Should().ContainSingle().Subject;
+        var methodNames = generated.SyntaxTree.GetRoot(TestContext.Current.CancellationToken)
+            .DescendantNodes().OfType<MethodDeclarationSyntax>().Select(method => method.Identifier.ValueText).ToArray();
+        methodNames.Contains("GetEqualityComponents").Should().Be(!manualEquality);
+        methodNames.Contains("ToString").Should().Be(!manualToString);
+        string source = generated.SourceText.ToString();
         source.Should().NotContain("System.Reflection").And.NotContain("GetProperties");
     }
 
@@ -443,9 +479,11 @@ public sealed class ValueObjectGeneratorTests
     }
 
     [Theory(DisplayName = "Adding a manual override removes only its generated implementation")]
-    [InlineData("protected override System.Collections.Generic.IEnumerable<object?> GetEqualityComponents() => [Number];", "GetEqualityComponents()")]
-    [InlineData("public override string ToString() => \"manual\";", "public override string ToString()")]
-    public void Generate_AfterManualOverrideIsAdded_RemovesConflictingGeneratedMethod(string method, string generatedSignature)
+    [InlineData("protected override System.Collections.Generic.IEnumerable<object?> GetEqualityComponents() => [Number];", "GetEqualityComponents")]
+    [InlineData("public override string ToString() => \"manual\";", "ToString")]
+    public void Generate_AfterManualOverrideIsAdded_RemovesConflictingGeneratedMethod(
+        string method,
+        string methodName)
     {
         var compilation = CreateCompilation("""
             public sealed partial class Value : PANiXiDA.Core.Domain.ValueObjects.ValueObject
@@ -463,7 +501,10 @@ public sealed class ValueObjectGeneratorTests
         AssertCompiles(output);
         var result = driver.GetRunResult();
         result.Diagnostics.Should().BeEmpty();
-        result.Results.Single().GeneratedSources.Single().SourceText.ToString().Should().NotContain(generatedSignature);
+        var methodNames = result.Results.Single().GeneratedSources.Single().SyntaxTree
+            .GetRoot(TestContext.Current.CancellationToken).DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Select(declaration => declaration.Identifier.ValueText);
+        methodNames.Should().NotContain(methodName);
     }
 
     [Fact(DisplayName = "Generator reuses unchanged output after unrelated source edits")]
