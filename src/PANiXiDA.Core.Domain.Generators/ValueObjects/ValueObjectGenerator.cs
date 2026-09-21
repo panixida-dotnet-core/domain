@@ -12,7 +12,6 @@ namespace PANiXiDA.Core.Domain.Generators.ValueObjects;
 [Generator(LanguageNames.CSharp)]
 public sealed class ValueObjectGenerator : IIncrementalGenerator
 {
-    // Keep this identifier stable to recognize generated overrides in referenced assemblies.
     internal const string GeneratorName = "PANiXiDA.Core.Domain.Generators.ValueObjectGenerator";
     private const string ValueObjectName = "ValueObject";
     private const string ValueObjectMetadataName = "PANiXiDA.Core.Domain.ValueObjects.ValueObject";
@@ -139,7 +138,6 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         string name,
         ImmutableArray<INamedTypeSymbol> generatedCodeAttributes)
     {
-        // IsValueObject has already verified that this hierarchy reaches ValueObject.
         for (var current = type;
              !SymbolEqualityComparer.Default.Equals(current, valueObjectType);
              current = current.BaseType!)
@@ -177,7 +175,6 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         CancellationToken cancellationToken)
     {
         var hierarchy = new Stack<INamedTypeSymbol>();
-        // IsValueObject has already verified that this hierarchy reaches ValueObject.
         for (var current = type;
              !SymbolEqualityComparer.Default.Equals(current, valueObjectType);
              current = current.BaseType!)
