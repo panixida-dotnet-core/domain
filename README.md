@@ -6,21 +6,68 @@
 [![Target Framework](https://img.shields.io/badge/target-net10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/github/license/panixida-dotnet-core/domain.svg)](LICENSE)
 
-Domain building blocks for .NET 10: strongly typed identifiers, entities, aggregate roots, repositories, domain events, value objects, and enumerations.
+`PANiXiDA.Core.Domain` provides small, reusable domain model building blocks for .NET applications that use Domain-Driven Design patterns.
+
+The package contains base abstractions for strongly typed identifiers, entities, aggregate roots, aggregate repositories, domain events, value objects, and extensible enumerations. It is intentionally lightweight and does not require runtime configuration or infrastructure dependencies.
 
 ## Installation
+
+### Package Manager
 
 ```bash
 dotnet add package PANiXiDA.Core.Domain
 ```
 
-No runtime configuration or dependency injection registration is required.
+### PackageReference
 
-The package includes source generators for identifiers, value objects, and enumerations. Reference it directly in each project declaring these types. To use generation, declare the type and any containing types as `partial`; file-local types are not supported. Constructors, factories, and validation are written manually.
+```xml
+<ItemGroup>
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
+</ItemGroup>
+```
+
+## Requirements
+
+- .NET 10
+- Nullable reference types enabled in consuming projects is recommended
+
+## Features
+
+- Strongly typed `Entity<TId>` base class and non-generic `IEntity` contract.
+- `AggregateRoot<TId>` base class and non-generic `IAggregateRoot` contract with domain event collection support.
+- `IStronglyTypedId` contract for domain identifiers backed by `Guid` values.
+- `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
+- `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
+- `ValueObject` base class with component-based equality.
+- `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
+- Deterministic lookup behavior for enumeration values by identifier or name.
+- Source-generated enumeration lookups, value object methods, and identifier string representations.
+
+## Namespaces
+
+```csharp
+using PANiXiDA.Core.Domain.Abstractions;
+using PANiXiDA.Core.Domain.AggregateRoots;
+using PANiXiDA.Core.Domain.DomainEvents;
+using PANiXiDA.Core.Domain.Entities;
+using PANiXiDA.Core.Domain.Enumerations;
+using PANiXiDA.Core.Domain.Identifiers;
+using PANiXiDA.Core.Domain.ValueObjects;
+```
+
+## Source Generation
+
+Source generators are included in the package. Reference it directly in each
+project declaring generated types. Declare the type and any containing types as
+`partial`; file-local types are not supported. Constructors, factories, and
+validation are written manually.
+
+With project references, also reference the generator project as an analyzer with
+`OutputItemType="Analyzer"` and `ReferenceOutputAssembly="false"`.
 
 ## Strongly Typed Identifier
 
-Implement `IStronglyTypedId` with a `Guid` value:
+Use `IStronglyTypedId` to distinguish domain identifiers from raw `Guid` values while keeping the underlying value type consistent.
 
 ```csharp
 using PANiXiDA.Core.Domain.Identifiers;
@@ -34,16 +81,14 @@ public readonly partial record struct CustomerId(Guid Value) : IStronglyTypedId
 }
 ```
 
-```csharp
-CustomerId customerId = CustomerId.New();
-string customerIdText = customerId.ToString();
-```
-
-For partial structs and record structs, the generator adds `ToString()` returning `Value.ToString()`. An explicitly written `ToString()` takes precedence.
+For partial structs and record structs, the generator adds `ToString()` returning
+`Value.ToString()`. An explicitly written `ToString()` takes precedence.
 
 ## Entity
 
-Inherit `Entity<TId>` for an object with a stable identity. Its identifier must be a struct implementing `IStronglyTypedId`.
+Use `Entity<TId>` for domain objects identified by a stable value.
+The identifier type must be a value type that implements `IStronglyTypedId`.
+The `IEntity` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `Entity<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.Entities;
@@ -63,14 +108,16 @@ public sealed class Customer(CustomerId id) : Entity<CustomerId>(id)
 
 ## Aggregate Root and Domain Events
 
-Use `AggregateRoot<TId>` to collect events raised by an aggregate:
+Use `AggregateRoot<TId>` when an entity is the consistency boundary for a domain model and needs to collect domain events.
+Its identifier type must be a value type that implements `IStronglyTypedId`.
+The `IAggregateRoot` contract is intentionally non-generic and does not expose identifiers; `Id` remains available on `AggregateRoot<TId>` implementations.
 
 ```csharp
 using PANiXiDA.Core.Domain.AggregateRoots;
 using PANiXiDA.Core.Domain.DomainEvents;
 using PANiXiDA.Core.Domain.Identifiers;
 
-public readonly partial record struct OrderId(Guid Value) : IStronglyTypedId;
+public readonly record struct OrderId(Guid Value) : IStronglyTypedId;
 
 public sealed class Order(OrderId id) : AggregateRoot<OrderId>(id)
 {
@@ -84,6 +131,7 @@ public sealed class Order(OrderId id) : AggregateRoot<OrderId>(id)
         }
 
         IsStarted = true;
+
         AddDomainEvent(new OrderStarted(Id));
     }
 }
@@ -91,19 +139,35 @@ public sealed class Order(OrderId id) : AggregateRoot<OrderId>(id)
 public sealed record OrderStarted(OrderId OrderId) : DomainEvent;
 ```
 
+Domain events are stored inside the aggregate root until the application layer reads and clears them.
+
 ```csharp
-Order order = new(new OrderId(Guid.CreateVersion7()));
+Order order = new(Guid.NewGuid());
 order.Start();
 
 IReadOnlyCollection<DomainEvent> domainEvents = order.GetDomainEvents();
+
 order.ClearDomainEvents();
 ```
 
-`DomainEvent` assigns a version 7 `Guid` to `Id` and the current UTC timestamp to `OccurredOnUtc`. Read and process the collected events before clearing them. Event dispatch and persistence belong to the application layer.
+`DomainEvent` assigns:
 
-## Repository
+- `Id` with `Guid.CreateVersion7()`;
+- `OccurredOnUtc` with `DateTimeOffset.UtcNow`.
 
-Define an aggregate repository through `IRepository<TId, TAggregateRoot>`:
+The package only stores domain events. It does not dispatch, publish, persist, or serialize them.
+
+## Repository Abstraction Ownership
+
+Repository contracts are split by architectural responsibility:
+
+| Contract | Package | Namespace | Responsibility |
+| --- | --- | --- | --- |
+| `IRepository<TId, TAggregateRoot>` | `PANiXiDA.Core.Domain` | `PANiXiDA.Core.Domain.Abstractions` | Loading and persisting aggregate roots through the domain boundary. |
+| `IReadRepository<TId>` | [`PANiXiDA.Core.Application`](https://github.com/panixida-dotnet-core/application#repository-abstraction-ownership) | `PANiXiDA.Core.Application.Persistence` | Read-side existence checks used by application queries and validation. |
+
+Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root.
+The identifier type must be a value type that implements `IStronglyTypedId`.
 
 ```csharp
 using PANiXiDA.Core.Domain.Abstractions;
@@ -113,11 +177,12 @@ public interface IOrderRepository : IRepository<OrderId, Order>
 }
 ```
 
-The contract provides `GetByIdAsync`, `AddAsync`, `UpdateAsync`, and `DeleteAsync`, each accepting a cancellation token. Implement persistence in the infrastructure layer.
+The contract provides `GetByIdAsync`, `AddAsync`, `UpdateAsync`, and `DeleteAsync`.
+Read-only application concerns should depend on `IReadRepository<TId>` from `PANiXiDA.Core.Application`.
 
 ## Value Object
 
-Inherit `ValueObject` and declare the class as `partial` to generate equality components and `ToString()`:
+Use `ValueObject` for immutable concepts where equality is based on values instead of identity.
 
 ```csharp
 using PANiXiDA.Core.Domain.ValueObjects;
@@ -135,17 +200,23 @@ Money first = new(10m, "USD");
 Money second = new(10m, "USD");
 
 bool areEqual = first == second;
-string moneyText = first.ToString();
+string text = first.ToString();
 ```
 
-Here, `areEqual` is `true` and `moneyText` is `Money { Amount = 10, Currency = USD }`.
+Here, `text` is `Money { Amount = 10, Currency = USD }`.
 
-- Equality requires the same concrete type and equal component values.
-- Components are public instance auto-properties with a public getter and either no setter or an `init` accessor, including inherited properties. Mutable and computed properties, fields, and indexers are excluded.
-- `ToString()` prints component names and values using invariant formatting.
-- Override `GetEqualityComponents()` or `ToString()` to customize either behavior independently. Manual overrides, including inherited ones, take precedence. With manual equality components, generated text uses `[0]`, `[1]`, etc. as labels.
+Value object equality uses:
 
-For example, generate equality while supplying a custom string representation:
+- the same runtime type;
+- the ordered sequence returned by `GetEqualityComponents()`.
+
+For partial value objects, the generator supplies `GetEqualityComponents()` and
+`ToString()`. Components are public instance auto-properties with a public getter
+and either no setter or an `init` accessor, including inherited properties.
+Fields, indexers, mutable properties, and computed getters are excluded.
+
+Override either method to customize it independently; manual overrides, including
+inherited ones, take precedence. For example, generate equality with custom text:
 
 ```csharp
 public sealed partial class Email(string value) : ValueObject
@@ -156,20 +227,22 @@ public sealed partial class Email(string value) : ValueObject
 }
 ```
 
+Generated `ToString()` prints component names and values using invariant formatting.
+With manual `GetEqualityComponents()`, labels are `[0]`, `[1]`, etc.
 If there are no eligible auto-properties, implement `GetEqualityComponents()` explicitly.
 
 ## Enumeration
 
-Declare a partial class inheriting `Enumeration<TEnumeration>` and its values as public static readonly fields:
+Use `Enumeration<TEnumeration>` for stable, named domain values that need behavior and lookup methods.
 
 ```csharp
 using PANiXiDA.Core.Domain.Enumerations;
 
 public sealed partial class OrderStatus : Enumeration<OrderStatus>
 {
-    public static readonly OrderStatus Draft = new(1, nameof(Draft));
-    public static readonly OrderStatus Submitted = new(2, nameof(Submitted));
-    public static readonly OrderStatus Cancelled = new(3, nameof(Cancelled));
+    public static readonly OrderStatus Draft = new(1, "Draft");
+    public static readonly OrderStatus Submitted = new(2, "Submitted");
+    public static readonly OrderStatus Cancelled = new(3, "Cancelled");
 
     private OrderStatus(int id, string name)
         : base(id, name)
@@ -178,42 +251,113 @@ public sealed partial class OrderStatus : Enumeration<OrderStatus>
 }
 ```
 
-Call the generated methods on the concrete type:
-
 ```csharp
 OrderStatus submitted = OrderStatus.FromId(2);
 OrderStatus cancelled = OrderStatus.FromName("Cancelled");
 
-bool foundById = OrderStatus.TryFromId(1, out OrderStatus? draft);
-bool foundByName = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
+bool found = OrderStatus.TryFromName(" Submitted ", out OrderStatus? status);
 IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 ```
 
-- `GetAll()` returns an immutable list of the concrete type's declared values, ordered by `Id`.
-- `FromId` and `FromName` throw `InvalidOperationException` if no value is found; the Try methods return `false` and `null`.
-- Name lookup trims surrounding whitespace and compares names case-sensitively using `StringComparer.Ordinal`. Null, empty, and whitespace-only names are treated as not found.
-- Identifiers and names must be unique; duplicates cause `InvalidOperationException`.
-- Equality and ordering use `Id` within the concrete enumeration type.
+The generator adds `GetAll`, `FromId`, `FromName`, `TryFromId`, and `TryFromName`
+directly to the partial class. Declare values as public static readonly fields.
+Do not call lookup methods from static field initializers or declare methods with
+the same signatures as the generated methods.
 
-Do not call lookup methods from static field initializers or declare methods with the same signatures as the generated methods.
+Enumeration behavior:
+
+- `GetAll()` returns public static values declared on the concrete type ordered by `Id`.
+- `FromId(int)` and `FromName(string)` return a value or throw `InvalidOperationException`.
+- `TryFromId(int, out TEnumeration?)` returns `false` when no value exists.
+- `FromName(string)` and `TryFromName(string, out TEnumeration?)` share the same lookup and trim surrounding whitespace.
+- `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `InvalidOperationException` in each of these cases.
+- Names are compared with `StringComparer.Ordinal`.
+- Duplicate identifiers or names throw `InvalidOperationException` on first use.
+- Equality and ordering are based on identifiers within the concrete enumeration type.
+
+## Configuration
+
+The package does not require runtime configuration, environment variables, external services, or dependency injection registration.
 
 ## Development
 
-Build the generator before formatting so the formatter can resolve generated members:
+### Restore
 
 ```bash
 dotnet restore
+```
+
+### Format
+
+Build the source generator before formatting to resolve generated members.
+
+```bash
 dotnet build src/PANiXiDA.Core.Domain.Generators/PANiXiDA.Core.Domain.Generators.csproj --no-restore
 dotnet format
+```
+
+### Build
+
+```bash
 dotnet build --configuration Release
+```
+
+### Test
+
+```bash
 dotnet test --configuration Release
+```
+
+### Test with Coverage
+
+```bash
+dotnet test --configuration Release --coverage --coverage-output-format xml --coverage-output coverage.xml --results-directory TestResults
+```
+
+### Pack
+
+```bash
 dotnet pack --configuration Release
 ```
 
-When consuming the library through project references, also reference the generator project with `OutputItemType="Analyzer"` and `ReferenceOutputAssembly="false"`.
+### Continuous integration
 
-CI checks formatting, tests, 100% line and branch coverage, and the SonarQube Quality Gate.
+Every pull request and push to `main` runs formatting, tests, and mandatory
+SonarQube analysis. Publishing from `main` starts only after the SonarQube
+Quality Gate succeeds.
+
+## Repository Layout
+
+```text
+.
+|-- src/
+|   |-- PANiXiDA.Core.Domain.Generators/
+|   `-- PANiXiDA.Core.Domain/
+|-- tests/
+|   `-- PANiXiDA.Core.Domain.UnitTests/
+|-- Directory.Build.props
+|-- Directory.Build.targets
+|-- Directory.Packages.props
+|-- global.json
+|-- version.json
+|-- LICENSE
+`-- README.md
+```
+
+## Package Metadata
+
+- Package ID: `PANiXiDA.Core.Domain`
+- Target framework: `net10.0`
+- Repository: `https://github.com/panixida-dotnet-core/domain`
+- License: Apache-2.0
+- Versioning: Nerdbank.GitVersioning
 
 ## License
 
-[Apache-2.0](LICENSE).
+This project is licensed under the Apache-2.0 license.
+
+See the [LICENSE](LICENSE) file for details.
+
+## Maintainers
+
+Maintained by PANiXiDA.
