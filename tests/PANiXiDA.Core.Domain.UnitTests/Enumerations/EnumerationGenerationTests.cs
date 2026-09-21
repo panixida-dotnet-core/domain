@@ -55,7 +55,14 @@ public sealed partial class EnumerationGenerationTests
     {
         // Arrange
         var tasks = Enumerable.Range(0, 16)
-            .Select(_ => Task.Run(ConcurrentEnumeration.GetAll, TestContext.Current.CancellationToken))
+            .Select(index => Task.Run(() =>
+            {
+                var value = index % 2 == 0
+                    ? ConcurrentEnumeration.FromId(1)
+                    : ConcurrentEnumeration.FromName(" First ");
+                value.Should().BeSameAs(ConcurrentEnumeration.First);
+                return ConcurrentEnumeration.GetAll();
+            }, TestContext.Current.CancellationToken))
             .ToArray();
 
         // Act

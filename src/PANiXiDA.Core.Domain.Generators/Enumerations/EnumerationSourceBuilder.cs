@@ -12,6 +12,7 @@ internal static class EnumerationSourceBuilder
         string typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         string baseTypeName = "global::PANiXiDA.Core.Domain.Enumerations.Enumeration<" + typeName + ">";
         string listTypeName = "global::System.Collections.Generic.IReadOnlyList<" + typeName + ">";
+        string valuesTypeName = baseTypeName + ".EnumerationValues";
         var memberNames = new HashSet<string>(type.TypeParameters.Select(parameter => parameter.Name));
         for (var current = type; current is not null; current = current.BaseType)
         {
@@ -28,7 +29,7 @@ internal static class EnumerationSourceBuilder
         string indent = new(' ', (depth + 1) * 4);
         AppendLookupMethods(builder, indent, typeName, baseTypeName, listTypeName, valuesFieldName);
         builder.AppendLine();
-        builder.Append(indent).Append("private static readonly global::System.Lazy<").Append(listTypeName)
+        builder.Append(indent).Append("private static readonly global::System.Lazy<").Append(valuesTypeName)
             .Append("> ").Append(valuesFieldName).AppendLine(" = new(static () =>");
         builder.Append(indent).AppendLine("{");
         builder.Append(indent).Append("    var items = new global::System.Collections.Generic.List<")
@@ -48,40 +49,7 @@ internal static class EnumerationSourceBuilder
         }
 
         builder.AppendLine();
-        string initialization = $$"""
-            for (int index = 0; index < items.Count; index++)
-            {
-                {{baseTypeName}} item = items[index];
-                for (int previous = 0; previous < index; previous++)
-                {
-                    if ((({{baseTypeName}})items[previous]).Id == item.Id)
-                    {
-                        throw new global::System.InvalidOperationException(
-                            $"Duplicate id '{item.Id}' in {typeof({{typeName}}).Name}");
-                    }
-                }
-
-                global::System.ArgumentNullException.ThrowIfNull(item.Name, "key");
-                for (int previous = 0; previous < index; previous++)
-                {
-                    if (global::System.String.Equals((({{baseTypeName}})items[previous]).Name,
-                        item.Name, global::System.StringComparison.Ordinal))
-                    {
-                        throw new global::System.InvalidOperationException(
-                            $"Duplicate name '{item.Name}' in {typeof({{typeName}}).Name}");
-                    }
-                }
-            }
-
-            items.Sort(static (left, right) =>
-                (({{baseTypeName}})left).Id.CompareTo((({{baseTypeName}})right).Id));
-            return items.AsReadOnly();
-            """;
-        foreach (string line in initialization.Replace("\r\n", "\n").Split('\n'))
-        {
-            builder.Append(indent).Append("    ").AppendLine(line);
-        }
-
+        builder.Append(indent).Append("    return new ").Append(valuesTypeName).AppendLine("(items);");
         builder.Append(indent).AppendLine("});");
         return TypeSourceBuilder.Complete(builder, depth);
     }
@@ -99,7 +67,7 @@ internal static class EnumerationSourceBuilder
             /// Gets all declared enumeration values ordered by identifier.
             /// </summary>
             /// <returns>The same immutable list of declared enumeration values on every call.</returns>
-            public static {{listTypeName}} GetAll() => {{valuesFieldName}}.Value;
+            public static {{listTypeName}} GetAll() => {{valuesFieldName}}.Value.All;
 
             /// <summary>
             /// Gets an enumeration value by its identifier.

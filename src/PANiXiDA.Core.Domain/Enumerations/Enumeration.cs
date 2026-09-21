@@ -1,4 +1,6 @@
-﻿namespace PANiXiDA.Core.Domain.Enumerations;
+﻿using System.Collections.Frozen;
+
+namespace PANiXiDA.Core.Domain.Enumerations;
 
 /// <summary>
 /// Represents an extensible enumeration value with a stable identifier and name.
@@ -152,12 +154,12 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Gets an enumeration value by its identifier.
     /// </summary>
     /// <param name="id">The enumeration value identifier.</param>
-    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
+    /// <param name="values">The lazily initialized enumeration snapshot and lookup indexes.</param>
     /// <returns>The enumeration value with the specified identifier.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the specified identifier is not declared by the concrete enumeration type.
     /// </exception>
-    protected static TEnumeration FromId(int id, Lazy<IReadOnlyList<TEnumeration>> values)
+    protected static TEnumeration FromId(int id, Lazy<EnumerationValues> values)
     {
         if (TryFromId(id, values, out var item))
         {
@@ -172,12 +174,12 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Gets an enumeration value by name after trimming surrounding whitespace.
     /// </summary>
     /// <param name="name">The enumeration value name.</param>
-    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
+    /// <param name="values">The lazily initialized enumeration snapshot and lookup indexes.</param>
     /// <returns>The enumeration value with the specified name.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the specified name is not declared by the concrete enumeration type.
     /// </exception>
-    protected static TEnumeration FromName(string name, Lazy<IReadOnlyList<TEnumeration>> values)
+    protected static TEnumeration FromName(string name, Lazy<EnumerationValues> values)
     {
         if (TryFromName(name, values, out var item))
         {
@@ -192,34 +194,28 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
     /// Tries to get an enumeration value by its identifier.
     /// </summary>
     /// <param name="id">The enumeration value identifier.</param>
-    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
+    /// <param name="values">The lazily initialized enumeration snapshot and lookup indexes.</param>
     /// <param name="item">When this method returns, contains the matching enumeration value, if found.</param>
     /// <returns><see langword="true"/> if a matching value was found; otherwise, <see langword="false"/>.</returns>
-    protected static bool TryFromId(int id, Lazy<IReadOnlyList<TEnumeration>> values, out TEnumeration? item)
+    protected static bool TryFromId(
+        int id,
+        Lazy<EnumerationValues> values,
+        out TEnumeration? item)
     {
-        var items = values.Value;
-        for (int index = 0; index < items.Count; index++)
-        {
-            var candidate = items[index];
-            if (candidate.Id == id)
-            {
-                item = candidate;
-                return true;
-            }
-        }
-
-        item = null;
-        return false;
+        return values.Value.ById.TryGetValue(id, out item);
     }
 
     /// <summary>
     /// Tries to get an enumeration value by name after trimming surrounding whitespace.
     /// </summary>
     /// <param name="name">The enumeration value name.</param>
-    /// <param name="values">The lazily initialized immutable list of declared enumeration values.</param>
+    /// <param name="values">The lazily initialized enumeration snapshot and lookup indexes.</param>
     /// <param name="item">When this method returns, contains the matching enumeration value, if found.</param>
     /// <returns><see langword="true"/> if a matching value was found; otherwise, <see langword="false"/>.</returns>
-    protected static bool TryFromName(string name, Lazy<IReadOnlyList<TEnumeration>> values, out TEnumeration? item)
+    protected static bool TryFromName(
+        string name,
+        Lazy<EnumerationValues> values,
+        out TEnumeration? item)
     {
         item = null;
 
@@ -229,18 +225,59 @@ public abstract class Enumeration<TEnumeration>(int id, string name) : IEquatabl
         }
 
         string trimmedName = name.Trim();
-        var items = values.Value;
-        for (int index = 0; index < items.Count; index++)
+        return values.Value.ByName.TryGetValue(trimmedName, out item);
+    }
+
+    /// <summary>
+    /// Holds an ordered enumeration snapshot and immutable indexes for generated lookup methods.
+    /// </summary>
+    protected sealed class EnumerationValues
+    {
+        /// <summary>
+        /// Initializes the snapshot and indexes from the declared enumeration values.
+        /// </summary>
+        /// <param name="items">The generated list of values, which is sorted and retained by the snapshot.</param>
+        /// <exception cref="InvalidOperationException">Thrown when an identifier or name is duplicated.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when a declared value has a null name.</exception>
+        public EnumerationValues(List<TEnumeration> items)
         {
-            var candidate = items[index];
-            if (string.Equals(candidate.Name, trimmedName, StringComparison.Ordinal))
+            var byId = new Dictionary<int, TEnumeration>(items.Count);
+            var byName = new Dictionary<string, TEnumeration>(items.Count, StringComparer.Ordinal);
+            foreach (var item in items)
             {
-                item = candidate;
-                return true;
+                if (!byId.TryAdd(item.Id, item))
+                {
+                    throw new InvalidOperationException(
+                        $"Duplicate id '{item.Id}' in {typeof(TEnumeration).Name}");
+                }
+
+                if (!byName.TryAdd(item.Name, item))
+                {
+                    throw new InvalidOperationException(
+                        $"Duplicate name '{item.Name}' in {typeof(TEnumeration).Name}");
+                }
             }
+
+            items.Sort(static (left, right) => left.Id.CompareTo(right.Id));
+            All = items.AsReadOnly();
+            ById = byId.ToFrozenDictionary();
+            ByName = byName.ToFrozenDictionary(StringComparer.Ordinal);
         }
 
-        return false;
+        /// <summary>
+        /// Gets the declared values ordered by identifier.
+        /// </summary>
+        public IReadOnlyList<TEnumeration> All { get; }
+
+        /// <summary>
+        /// Gets the declared values indexed by identifier.
+        /// </summary>
+        public FrozenDictionary<int, TEnumeration> ById { get; }
+
+        /// <summary>
+        /// Gets the declared values indexed by name with ordinal comparison.
+        /// </summary>
+        public FrozenDictionary<string, TEnumeration> ByName { get; }
     }
 
     private static int Compare(Enumeration<TEnumeration>? left, Enumeration<TEnumeration>? right)

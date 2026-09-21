@@ -271,8 +271,9 @@ IReadOnlyList<OrderStatus> allStatuses = OrderStatus.GetAll();
 
 The package includes a C# incremental source generator. It adds `GetAll`,
 `FromId`, `FromName`, `TryFromId`, and `TryFromName` directly to the partial class
-and creates a single immutable list using direct references to its public static
-fields. The generated lookup methods delegate to shared protected methods in
+and supplies direct references to its public static fields to one immutable snapshot.
+The snapshot contains an ordered list and `FrozenDictionary` indexes by identifier
+and name. The generated lookup methods delegate to shared protected methods in
 `Enumeration<TEnumeration>`; no additional interface or generic constraint is required.
 No reflection, assembly scanning, runtime registration,
 or `DynamicallyAccessedMembers` annotation is needed to discover these values.
@@ -289,18 +290,20 @@ Enumeration behavior:
 - `FromName(string)` and `TryFromName(string, out TEnumeration?)` share the same lookup and trim surrounding whitespace.
 - `TryFromName` returns `false` for null, empty, whitespace, or unknown names; `FromName` throws `InvalidOperationException` in each of these cases.
 - Names are compared with `StringComparer.Ordinal`.
-- Duplicate identifiers or names throw `InvalidOperationException` when the generated list is first accessed.
+- Duplicate identifiers or names throw `InvalidOperationException` when the generated snapshot is first accessed.
 - Equality and ordering are based on identifiers within the concrete enumeration type.
 
-The generated list is initialized lazily and safely across threads, after the
+The generated snapshot is initialized lazily and safely across threads, after the
 enumeration's static fields have been initialized. Identifiers and names may
-still be computed by field initializers: sorting and duplicate validation run
-once per closed enumeration type. All lookup methods search the same list with
-a linear scan. The generated methods pass the lazy list to the base class,
-which keeps name validation, lookup, and failure behavior in one place.
-Invalid name inputs are rejected before the list is evaluated. The base class
-has no separate cache or lookup dictionaries.
-Changing a static field after list initialization does not update the snapshot.
+still be computed by field initializers: duplicate validation, sorting, and index
+construction run once per closed enumeration type. Temporary dictionaries reject
+duplicate keys before being converted to frozen indexes. `GetAll` keeps the ordered
+list; the lookup methods use the frozen indexes. The generated methods pass the
+same lazy snapshot to the base class, which keeps name validation, lookup, and
+failure behavior in one place. Invalid name inputs are rejected before the
+snapshot is evaluated. Indexes are constructed at runtime on first use; code
+generation supplies the values without reflection.
+Changing a static field after initialization does not update the list or indexes.
 Do not call lookup methods from enumeration field initializers.
 
 ## Migrating from 2.x

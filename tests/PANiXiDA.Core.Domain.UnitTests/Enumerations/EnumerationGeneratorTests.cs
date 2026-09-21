@@ -66,21 +66,26 @@ public sealed class EnumerationGeneratorTests
 
                     protected static T FromId(
                         int id,
-                        Lazy<IReadOnlyList<T>> values) => throw new NotImplementedException();
+                        Lazy<EnumerationValues> values) => throw new NotImplementedException();
 
                     protected static T FromName(
                         string name,
-                        Lazy<IReadOnlyList<T>> values) => throw new NotImplementedException();
+                        Lazy<EnumerationValues> values) => throw new NotImplementedException();
 
                     protected static bool TryFromId(
                         int id,
-                        Lazy<IReadOnlyList<T>> values,
+                        Lazy<EnumerationValues> values,
                         out T? item) => throw new NotImplementedException();
 
                     protected static bool TryFromName(
                         string name,
-                        Lazy<IReadOnlyList<T>> values,
+                        Lazy<EnumerationValues> values,
                         out T? item) => throw new NotImplementedException();
+
+                    protected sealed class EnumerationValues(List<T> items)
+                    {
+                        public IReadOnlyList<T> All { get; } = items.AsReadOnly();
+                    }
                 }
             }
 
