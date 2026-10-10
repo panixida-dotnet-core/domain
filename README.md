@@ -361,6 +361,7 @@ See the [LICENSE](LICENSE) file for details.
 ## Maintainers
 
 Maintained by PANiXiDA.
+
 ## SonarQube new code
 
 The SonarQube project uses `Previous version`. CI passes the stable `version`
