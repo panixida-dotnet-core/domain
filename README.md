@@ -159,13 +159,6 @@ The package only stores domain events. It does not dispatch, publish, persist, o
 
 ## Repository Abstraction Ownership
 
-Repository contracts are split by architectural responsibility:
-
-| Contract | Package | Namespace | Responsibility |
-| --- | --- | --- | --- |
-| `IRepository<TId, TAggregateRoot>` | `PANiXiDA.Core.Domain` | `PANiXiDA.Core.Domain.Abstractions` | Loading and persisting aggregate roots through the domain boundary. |
-| `IReadRepository<TId>` | [`PANiXiDA.Core.Application`](https://github.com/panixida-dotnet-core/application#repository-abstraction-ownership) | `PANiXiDA.Core.Application.Persistence` | Read-side existence checks used by application queries and validation. |
-
 Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root.
 The identifier type must be a value type that implements `IStronglyTypedId`.
 
@@ -179,9 +172,7 @@ public interface IOrderRepository : IRepository<OrderId, Order>
 
 Use asynchronous `GetByIdAsync` to load an aggregate root. Synchronous `Add`, `Update`, and `Delete` register pending changes.
 
-Persist pending changes with `IUnitOfWork.SaveChangesAsync` from `PANiXiDA.Core.Application`. In the command pipeline, `SaveChangesBehavior` saves changes after domain event collection and before transaction commit. Persistence and concurrency failures are reported during saving.
-
-Read-only application concerns should depend on `IReadRepository<TId>` from `PANiXiDA.Core.Application`.
+The persistence adapter is responsible for saving registered changes.
 
 ## Value Object
 
