@@ -24,23 +24,20 @@ public interface IRepository<TId, TAggregateRoot>
     Task<TAggregateRoot?> GetByIdAsync(TId id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Adds an aggregate root asynchronously.
+    /// Registers an aggregate root for insertion when the unit of work saves changes.
     /// </summary>
     /// <param name="aggregateRoot">The aggregate root to add.</param>
-    /// <param name="cancellationToken">The token used to cancel the operation.</param>
-    Task AddAsync(TAggregateRoot aggregateRoot, CancellationToken cancellationToken);
+    void Add(TAggregateRoot aggregateRoot);
 
     /// <summary>
-    /// Updates an aggregate root asynchronously.
+    /// Registers an aggregate root for update when the unit of work saves changes.
     /// </summary>
     /// <param name="aggregateRoot">The aggregate root to update.</param>
-    /// <param name="cancellationToken">The token used to cancel the operation.</param>
-    Task UpdateAsync(TAggregateRoot aggregateRoot, CancellationToken cancellationToken);
+    void Update(TAggregateRoot aggregateRoot);
 
     /// <summary>
-    /// Deletes an aggregate root asynchronously.
+    /// Registers an aggregate root for deletion when the unit of work saves changes.
     /// </summary>
     /// <param name="aggregateRoot">The aggregate root to delete.</param>
-    /// <param name="cancellationToken">The token used to cancel the operation.</param>
-    Task DeleteAsync(TAggregateRoot aggregateRoot, CancellationToken cancellationToken);
+    void Delete(TAggregateRoot aggregateRoot);
 }

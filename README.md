@@ -177,7 +177,9 @@ public interface IOrderRepository : IRepository<OrderId, Order>
 }
 ```
 
-The contract provides `GetByIdAsync`, `AddAsync`, `UpdateAsync`, and `DeleteAsync`.
+The contract provides asynchronous `GetByIdAsync` and synchronous `Add`, `Update`, and `Delete`. Write methods register changes for the persistence adapter's unit of work; they do not persist the aggregate immediately. Save the accumulated changes explicitly or through the application request pipeline.
+
+Version 4 replaces `AddAsync`, `UpdateAsync`, and `DeleteAsync` with these synchronous methods. Update repository implementations and callers together. Persistence and concurrency failures are reported when the unit of work saves changes. Adapters that generate identifiers through database access must also account for that access when registering a new aggregate.
 Read-only application concerns should depend on `IReadRepository<TId>` from `PANiXiDA.Core.Application`.
 
 ## Value Object
