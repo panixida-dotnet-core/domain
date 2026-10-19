@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="4.0.*" />
 </ItemGroup>
 ```
 
@@ -159,13 +159,6 @@ The package only stores domain events. It does not dispatch, publish, persist, o
 
 ## Repository Abstraction Ownership
 
-Repository contracts are split by architectural responsibility:
-
-| Contract | Package | Namespace | Responsibility |
-| --- | --- | --- | --- |
-| `IRepository<TId, TAggregateRoot>` | `PANiXiDA.Core.Domain` | `PANiXiDA.Core.Domain.Abstractions` | Loading and persisting aggregate roots through the domain boundary. |
-| `IReadRepository<TId>` | [`PANiXiDA.Core.Application`](https://github.com/panixida-dotnet-core/application#repository-abstraction-ownership) | `PANiXiDA.Core.Application.Persistence` | Read-side existence checks used by application queries and validation. |
-
 Use `IRepository<TId, TAggregateRoot>` as the base contract for a repository that works with an aggregate root.
 The identifier type must be a value type that implements `IStronglyTypedId`.
 
@@ -177,8 +170,9 @@ public interface IOrderRepository : IRepository<OrderId, Order>
 }
 ```
 
-The contract provides `GetByIdAsync`, `AddAsync`, `UpdateAsync`, and `DeleteAsync`.
-Read-only application concerns should depend on `IReadRepository<TId>` from `PANiXiDA.Core.Application`.
+Use asynchronous `GetByIdAsync` to load an aggregate root. Synchronous `Add`, `Update`, and `Delete` register pending changes.
+
+The persistence adapter is responsible for saving registered changes.
 
 ## Value Object
 
