@@ -22,7 +22,7 @@ dotnet add package PANiXiDA.Core.Domain
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="PANiXiDA.Core.Domain" Version="3.0.0" />
+  <PackageReference Include="PANiXiDA.Core.Domain" Version="4.0.*" />
 </ItemGroup>
 ```
 
