@@ -11,14 +11,11 @@ public sealed class RepositoryTests
     [InlineData("Delete")]
     public void WriteMethods_ExposeSynchronousContract(string methodName)
     {
-        // Arrange
         Type repositoryType = typeof(IRepository<,>);
         Type aggregateType = repositoryType.GetGenericArguments()[1];
 
-        // Act
         var method = repositoryType.GetMethod(methodName);
 
-        // Assert
         method.Should().NotBeNull();
         method!.ReturnType.Should().Be(typeof(void));
         method.GetParameters().Select(parameter => parameter.ParameterType).Should().Equal(aggregateType);
