@@ -1,3 +1,4 @@
+using PANiXiDA.Core.Domain.Abstractions;
 using PANiXiDA.Core.Domain.DomainEvents;
 
 namespace PANiXiDA.Core.Domain.UnitTests.DomainEvents;
@@ -23,7 +24,9 @@ public sealed class DomainEventTests
         TestDomainEvent domainEvent = new();
 
         IDomainEvent contract = domainEvent;
+        IMessage message = contract;
 
+        message.Should().BeSameAs(domainEvent);
         contract.Id.Should().Be(domainEvent.Id);
         contract.OccurredOnUtc.Should().Be(domainEvent.OccurredOnUtc);
     }

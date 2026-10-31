@@ -1,9 +1,11 @@
-﻿namespace PANiXiDA.Core.Domain.DomainEvents;
+using PANiXiDA.Core.Domain.Abstractions;
+
+namespace PANiXiDA.Core.Domain.DomainEvents;
 
 /// <summary>
 /// Defines a domain event with an identifier and UTC occurrence timestamp.
 /// </summary>
-public interface IDomainEvent
+public interface IDomainEvent : IMessage
 {
     /// <summary>
     /// Gets the unique domain event identifier.
