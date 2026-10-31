@@ -38,6 +38,7 @@ dotnet add package PANiXiDA.Core.Domain
 - `IStronglyTypedId` contract for domain identifiers backed by `Guid` values.
 - `IRepository<TId, TAggregateRoot>` contract for loading and persisting aggregate roots.
 - `DomainEvent` base record with generated version 7 `Guid` identifiers and UTC timestamps.
+- `IMessage` marker in `PANiXiDA.Core.Domain.Abstractions`, inherited by `IDomainEvent`.
 - `ValueObject` base class with component-based equality.
 - `Enumeration<TEnumeration>` base class for smart enum-style domain concepts.
 - Deterministic lookup behavior for enumeration values by identifier or name.
